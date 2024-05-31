@@ -14,6 +14,12 @@ from . import models
 from .utils import objl as ol
 from .utils import core
 
+# Enable mixed precision
+from tensorflow.keras import mixed_precision
+policy = mixed_precision.Policy('mixed_float16')
+mixed_precision.set_global_policy(policy)
+
+
 class Segment(core.DeepFinder):
     def __init__(self, Ncl, path_weights, patch_size=192):
         core.DeepFinder.__init__(self)

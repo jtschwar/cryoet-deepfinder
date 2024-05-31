@@ -4,23 +4,137 @@
 # Copyright (C) Inria,  Emmanuel Moebel, Charles Kervrann, All Rights Reserved, 2015-2021, v1.0
 # License: GPL v3.0. See <https://www.gnu.org/licenses/>
 # =============================================================================================
-import h5py
-import numpy as np
-import time
 
-#from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.optimizers.legacy import Adam
+import numpy as np
+import os, time, h5py
+
+import tensorflow as tf
+from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
 import tensorflow.keras.backend as K
 
+import matplotlib.pyplot as plt
 from sklearn.metrics import precision_recall_fscore_support
+from sklearn.utils.class_weight import compute_class_weight
 
 from . import models
 from . import losses
 from .utils import core
 from .utils import common as cm
 
+# Enable mixed precision
+from tensorflow.keras import mixed_precision
+policy = mixed_precision.Policy('mixed_float16')
+mixed_precision.set_global_policy(policy)
 
+# Custom callback to save model weights every 10 epochs
+class SaveWeightsCallback(tf.keras.callbacks.Callback):
+    def __init__(self, path_out):
+        super().__init__()
+        self.path_out = path_out
+    def on_epoch_end(self, epoch, logs=None):
+        if (epoch + 1) % 10 == 0:
+            self.model.save(self.path_out + f'net_weights_epoch{epoch + 1}.h5')       
+
+# Callback to clear session to free up memory after each epoch
+class ClearMemoryCallback(tf.keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        tf.keras.backend.clear_session()
+        gc.collect()   
+
+def log_images_func(model, validation_data, steps):
+    val_data, val_target = [], []
+    for step, (x, y) in enumerate(validation_data):
+        if step >= steps:
+            break
+        val_data.append(x.numpy())
+        val_target.append(y.numpy())
+    
+    val_data = np.concatenate(val_data, axis=0)
+    val_target = np.concatenate(val_target, axis=0)
+
+    val_predict = model.predict(val_data)
+    
+    return val_data, val_predict        
+
+class ImageLogger(tf.keras.callbacks.Callback):
+    def __init__(self, writer, log_images_func, validation_data, steps, prefix='train'):
+        super().__init__()
+        self.writer = writer
+        self.log_images_func = log_images_func
+        self.validation_data = validation_data
+        self.steps = steps
+        self.prefix = prefix
+
+    def extract_vol_infrance(self, inVol):
+        return np.expand_dims(np.expand_dims(np.array(inVol), axis=0), axis=-1)
+
+    def log_images(self, writer, images, predictions, step, prefix='train'):
+        with writer.as_default():
+            for i, (image, prediction) in enumerate(zip(images, predictions)):
+                
+                img_tensor = self.extract_vol_infrance(image)
+                pred_tensor = self.extract_vol_infrance(prediction)
+
+                # Ensure tensors are not None
+                if img_tensor is not None and pred_tensor is not None:
+                    # Check the rank of the tensor
+                    if len(img_tensor.shape) == 4:
+
+                        # Select a middle slice for visualization
+                        img_tensor = img_tensor[img_tensor.shape[0] // 2, :, :]
+                        pred_tensor = pred_tensor[pred_tensor.shape[0] // 2, :, :]
+
+                        # Add batch and channel dimensions
+                        img_tensor = np.expand_dims(np.expand_dims(img_tensor, axis=0), axis=-1)
+                        pred_tensor = np.expand_dims(np.expand_dims(pred_tensor, axis=0), axis=-1)
+
+                        tf.summary.image(f"{prefix}_image_{i}", img_tensor, step=step)
+                        tf.summary.image(f"{prefix}_prediction_{i}", pred_tensor, step=step)
+
+class TrainingPlotCallback(tf.keras.callbacks.Callback):
+    def __init__(self, validation_data, validation_steps, path_out, label_list):
+        super().__init__()
+        self.validation_data = validation_data
+        self.validation_steps = validation_steps
+        self.path_out = path_out
+        self.label_list = label_list
+        self.history = {
+            'loss': [], 'acc': [], 'val_loss': [], 'val_acc': [],
+            'val_f1': [], 'val_recall': [], 'val_precision': []
+        }
+
+    def on_epoch_end(self, epoch, logs=None):
+        # Append training metrics
+        self.history['loss'].append(logs.get('loss'))
+        self.history['acc'].append(logs.get('accuracy'))
+        self.history['val_loss'].append(logs.get('val_loss'))
+        self.history['val_acc'].append(logs.get('val_accuracy'))
+
+        # Retrieve validation data and predictions
+        val_data, val_target = [], []
+        for step, (x, y) in enumerate(self.validation_data):
+            if step >= self.validation_steps:
+                break
+            val_data.append(x.numpy())
+            val_target.append(y.numpy())
+
+        val_data = np.concatenate(val_data, axis=0)
+        val_target = np.concatenate(val_target, axis=0)
+
+        val_predict = np.argmax(self.model.predict(val_data), axis=-1)
+        val_targ = np.argmax(val_target, axis=-1)
+
+        # Calculate precision, recall, and F1-score
+        scores = precision_recall_fscore_support(val_targ.flatten(), val_predict.flatten(), average=None, labels=self.label_list)
+
+        self.history['val_f1'].append(scores[2])
+        self.history['val_recall'].append(scores[1])
+        self.history['val_precision'].append(scores[0])
+
+        # Save history and plot
+        core.save_history(self.history, self.path_out + 'net_train_history.h5')
+        core.plot_history(self.history, self.path_out + 'net_train_history_plot.png')
 
 class TargetBuilder(core.DeepFinder):
     def __init__(self):
@@ -144,6 +258,19 @@ class Train(core.DeepFinder):
         self.path_out = './'
         self.h5_dset_name = 'dataset' # if training set is stored as .h5 file, specify here in which h5 dataset the arrays are stored
 
+        # Check GPU memory limit
+        gpus = tf.config.experimental.list_physical_devices('GPU')
+        if gpus:
+            try:
+                # Enable memory growth for the GPU
+                for gpu in gpus:
+                    tf.config.experimental.set_memory_growth(gpu, True)
+
+            except RuntimeError as e:
+                print(e)
+        else:
+            print("No GPU found.")  
+
         # Network parameters:
         self.Ncl = Ncl  # Ncl
         self.dim_in = dim_in  # /!\ has to a multiple of 4 (because of 2 pooling layers), so that dim_in=dim_out
@@ -231,9 +358,28 @@ class Train(core.DeepFinder):
         self.check_attributes()
         self.check_arguments(path_data, path_target, objlist_train, objlist_valid)
 
+        # TensorBoard writer
+        log_dir = self.path_out + "tensorboard_logs/"
+        writer = tf.summary.create_file_writer(log_dir)        
+        tf_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, profile_batch='500,520')
+
+        gpus = tf.config.list_logical_devices('GPU')
+        strategy = tf.distribute.MirroredStrategy(gpus)
 
         # Build network (not in constructor, else not possible to init model with weights from previous train round):
         self.net.compile(optimizer=self.optimizer, loss=self.loss, metrics=['accuracy'])
+
+        self.batch_data = np.zeros((self.batch_size, self.dim_in, self.dim_in, self.dim_in, 1))
+        self.batch_target = np.zeros((self.batch_size, self.dim_in, self.dim_in, self.dim_in, self.Ncl))
+
+        train_dataset = self.create_tf_dataset(data_list, target_list, objlist_train, self.batch_size, self.dim_in, self.Ncl, self.flag_batch_bootstrap)
+        valid_dataset = self.create_tf_dataset(data_list, target_list, objlist_valid, self.batch_size, self.dim_in, self.Ncl, self.flag_batch_bootstrap)
+
+        # Callbacks for Save weights and Clear Memory
+        save_weights_callback = SaveWeightsCallback(self.path_out)
+        clear_memory_callback = ClearMemoryCallback()
+        learning_rate_callback = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=1e-6, verbose=1)
+        plotting_callback = TrainingPlotCallback(validation_data=valid_dataset, validation_steps=self.steps_per_valid, path_out=self.path_out, label_list=self.label_list)
 
         # Load whole dataset:
         if self.flag_direct_read == False:
@@ -242,89 +388,17 @@ class Train(core.DeepFinder):
 
         self.display('Launch training ...')
 
-        # Declare lists for storing training statistics:
-        hist_loss_train = []
-        hist_acc_train  = []
-        hist_loss_valid = []
-        hist_acc_valid  = []
-        hist_f1         = []
-        hist_recall     = []
-        hist_precision  = []
-        process_time    = []
-
-        # Training loop:
-        for e in range(self.epochs):
-            # TRAINING:
-            start = time.time()
-            list_loss_train = []
-            list_acc_train = []
-            for it in range(self.steps_per_epoch):
-                if self.flag_direct_read:
-                    batch_data, batch_target = self.generate_batch_direct_read(path_data, path_target, self.batch_size, objlist_train)
-                else:
-                    batch_data, batch_target, idx_list = self.generate_batch_from_array(data_list, target_list, self.batch_size, objlist_train)
-
-                if self.sample_weights is not None:
-                    sample_weight = self.sample_weights[idx_list]
-                else:
-                    sample_weight = None
-
-                loss_train = self.net.train_on_batch(batch_data, batch_target,
-                                                     class_weight=self.class_weight,
-                                                     sample_weight=sample_weight)
-
-                self.display('epoch %d/%d - it %d/%d - loss: %0.3f - acc: %0.3f' % (e + 1, self.epochs, it + 1, self.steps_per_epoch, loss_train[0], loss_train[1]))
-                list_loss_train.append(loss_train[0])
-                list_acc_train.append(loss_train[1])
-            hist_loss_train.append(list_loss_train)
-            hist_acc_train.append(list_acc_train)
-
-            # VALIDATION (compute statistics to monitor training):
-            list_loss_valid = []
-            list_acc_valid  = []
-            list_f1         = []
-            list_recall     = []
-            list_precision  = []
-            for it in range(self.steps_per_valid):
-                if self.flag_direct_read:
-                    batch_data_valid, batch_target_valid = self.generate_batch_direct_read(path_data, path_target, self.batch_size, objlist_valid)
-                else:
-                    batch_data_valid, batch_target_valid, idx_list = self.generate_batch_from_array(data_list, target_list, self.batch_size, objlist_valid)
-                loss_val = self.net.evaluate(batch_data_valid, batch_target_valid, verbose=0) # TODO replace by loss() to reduce computation
-                batch_pred = self.net.predict(batch_data_valid)
-                #loss_val = K.eval(losses.tversky_loss(K.constant(batch_target_valid), K.constant(batch_pred)))
-                scores = precision_recall_fscore_support(batch_target_valid.argmax(axis=-1).flatten(), batch_pred.argmax(axis=-1).flatten(), average=None, labels=self.label_list)
-
-                list_loss_valid.append(loss_val[0])
-                list_acc_valid.append(loss_val[1])
-                list_f1.append(scores[2])
-                list_recall.append(scores[1])
-                list_precision.append(scores[0])
-
-            hist_loss_valid.append(list_loss_valid)
-            hist_acc_valid.append(list_acc_valid)
-            hist_f1.append(list_f1)
-            hist_recall.append(list_recall)
-            hist_precision.append(list_precision)
-
-            end = time.time()
-            process_time.append(end - start)
-            self.display('-------------------------------------------------------------')
-            self.display('EPOCH %d/%d - valid loss: %0.3f - valid acc: %0.3f - %0.2fsec' % (
-            e + 1, self.epochs, loss_val[0], loss_val[1], end - start))
-
-
-            # Save and plot training history:
-            history = {'loss': hist_loss_train, 'acc': hist_acc_train, 'val_loss': hist_loss_valid,
-                       'val_acc': hist_acc_valid, 'val_f1': hist_f1, 'val_recall': hist_recall,
-                       'val_precision': hist_precision}
-            core.save_history(history, self.path_out+'net_train_history.h5')
-            core.plot_history(history, self.path_out+'net_train_history_plot.png')
-
-            self.display('=============================================================')
-
-            if (e + 1) % 10 == 0:  # save weights every 10 epochs
-                self.net.save(self.path_out+'net_weights_epoch' + str(e + 1) + '.h5')
+        # Train the model using model.fit()
+        history = self.net.fit(
+            train_dataset,
+            epochs=self.epochs,
+            steps_per_epoch=self.steps_per_epoch,
+            class_weight=self.class_weights,
+            validation_data=valid_dataset,
+            validation_steps=self.steps_per_valid,
+            callbacks=[tf_callback, save_weights_callback,plotting_callback,learning_rate_callback],
+            verbose=1
+        )
 
         self.display("Model took %0.2f seconds to train" % np.sum(process_time))
         self.net.save(self.path_out+'net_weights_FINAL.h5')
@@ -336,128 +410,52 @@ class Train(core.DeepFinder):
         self.is_list(objlist_train, 'objlist_train')
         self.is_list(objlist_valid, 'objlist_valid')
 
-    # Generates batches for training and validation. In this version, the dataset is not loaded into memory. Only the
-    # current batch content is loaded into memory, which is useful when memory is limited.
-    # Is called when self.flag_direct_read=True
-    # !! For now only works for h5 files !!
-    # Batches are generated as follows:
-    #   - The positions at which patches are sampled are determined by the coordinates contained in the object list.
-    #   - Two data augmentation techniques are applied:
-    #       .. To gain invariance to translations, small random shifts are added to the positions.
-    #       .. 180 degree rotation around tilt axis (this way missing wedge orientation remains the same).
-    #   - Also, bootstrap (i.e. re-sampling) can be applied so that we have an equal amount of each macromolecule in
-    #     each batch. This is useful when a class is under-represented. Is applied when self.flag_batch_bootstrap=True
-    # INPUTS:
-    #   path_data: list of strings '/path/to/tomo.h5'
-    #   path_target: list of strings '/path/to/target.h5'
-    #   batch_size: int
-    #   objlist: list of dictionnaries
-    # OUTPUT:
-    #   batch_data: numpy array [batch_idx, z, y, x, channel] in our case only 1 channel
-    #   batch_target: numpy array [batch_idx, z, y, x, class_idx] is one-hot encoded
-    def generate_batch_direct_read(self, path_data, path_target, batch_size, objlist=None):
-        p_in = np.int_(np.floor(self.dim_in / 2))
+    def create_tf_dataset(self, data, target, objlist, batch_size, dim_in, Ncl, flag_batch_bootstrap):
+        dataset = tf.data.Dataset.from_generator(
+            lambda: self.data_generator(data, target, objlist, batch_size, dim_in, Ncl, flag_batch_bootstrap),
+            output_signature=(
+                tf.TensorSpec(shape=(batch_size, dim_in, dim_in, dim_in, 1), dtype=tf.float32),
+                tf.TensorSpec(shape=(batch_size, dim_in, dim_in, dim_in, Ncl), dtype=tf.float32)
+            )
+        )
+        dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        return dataset
 
-        batch_data = np.zeros((batch_size, self.dim_in, self.dim_in, self.dim_in, 1))
-        batch_target = np.zeros((batch_size, self.dim_in, self.dim_in, self.dim_in, self.Ncl))
+    def data_generator(self,data, target, objlist, batch_size, dim_in, Ncl, flag_batch_bootstrap):
+        p_in = int(np.floor(dim_in / 2))
 
-        # The batch is generated by randomly sampling data patches.
-        if self.flag_batch_bootstrap:  # choose from bootstrapped objlist
-            pool = core.get_bootstrap_idx(objlist, Nbs=batch_size)
-        else:  # choose from whole objlist
-            pool = range(0, len(objlist))
+        while True:
+            
+            if flag_batch_bootstrap:
+                pool = core.get_bootstrap_idx(objlist, Nbs=batch_size)
+            else:
+                pool = range(0, len(objlist))
 
-        for i in range(batch_size):
-            # Choose random object in training set:
-            index = np.random.choice(pool)
+            idx_list = []
+            for i in range(batch_size):
+                index = np.random.choice(pool)
+                idx_list.append(index)
 
-            tomoID = int(objlist[index]['tomo_idx'])
+                tomoID = int(objlist[index]['tomo_idx'])
+                tomodim = data[tomoID].shape
+                sample_data = data[tomoID]
+                sample_target = target[tomoID]
 
-            h5file = h5py.File(path_data[tomoID], 'r')
-            tomodim = h5file['dataset'].shape  # get tomo dimensions without loading the array
-            h5file.close()
+                x, y, z = core.get_patch_position(tomodim, p_in, objlist[index], self.Lrnd)
 
-            x, y, z = core.get_patch_position(tomodim, p_in, objlist[index], self.Lrnd)
+                patch_data = sample_data[z-p_in:z+p_in, y-p_in:y+p_in, x-p_in:x+p_in]
+                patch_target = sample_target[z-p_in:z+p_in, y-p_in:y+p_in, x-p_in:x+p_in]
 
-            # Load data and target patches:
-            h5file = h5py.File(path_data[tomoID], 'r')
-            patch_data = h5file['dataset'][z-p_in:z+p_in, y-p_in:y+p_in, x-p_in:x+p_in]
-            h5file.close()
+                patch_data = (patch_data - np.mean(patch_data)) / np.std(patch_data)
+                patch_target_onehot = to_categorical(patch_target, Ncl)
 
-            h5file = h5py.File(path_target[tomoID], 'r')
-            patch_target = h5file['dataset'][z-p_in:z+p_in, y-p_in:y+p_in, x-p_in:x+p_in]
-            h5file.close()
+                self.batch_data[i, :, :, :, 0] = patch_data
+                self.batch_target[i] = patch_target_onehot
 
-            # Process the patches in order to be used by network:
-            patch_data = (patch_data - np.mean(patch_data)) / np.std(patch_data)  # normalize
-            patch_target_onehot = to_categorical(patch_target, self.Ncl)
+                if np.random.uniform() < 0.5:
+                    self.batch_data[i] = np.rot90(self.batch_data[i], k=2, axes=(0, 2))
+                    self.batch_target[i] = np.rot90(self.batch_target[i], k=2, axes=(0, 2))
 
-            # Store into batch array:
-            batch_data[i, :, :, :, 0] = patch_data
-            batch_target[i] = patch_target_onehot
+            yield self.batch_data, self.batch_target
 
-            # Data augmentation (180degree rotation around tilt axis):
-            if np.random.uniform() < 0.5:
-                batch_data[i] = np.rot90(batch_data[i], k=2, axes=(0, 2))
-                batch_target[i] = np.rot90(batch_target[i], k=2, axes=(0, 2))
-
-        return batch_data, batch_target
-
-    # Generates batches for training and validation. In this version, the whole dataset has already been loaded into
-    # memory, and batch is sampled from there. Apart from that does the same as above.
-    # Is called when self.flag_direct_read=False
-    # INPUTS:
-    #   data: list of numpy arrays
-    #   target: list of numpy arrays
-    #   batch_size: int
-    #   objlist: list of dictionnaries
-    # OUTPUT:
-    #   batch_data: numpy array [batch_idx, z, y, x, channel] in our case only 1 channel
-    #   batch_target: numpy array [batch_idx, z, y, x, class_idx] is one-hot encoded
-    def generate_batch_from_array(self, data, target, batch_size, objlist=None):
-        p_in = np.int_(np.floor(self.dim_in / 2))
-
-        batch_data = np.zeros((batch_size, self.dim_in, self.dim_in, self.dim_in, 1))
-        batch_target = np.zeros((batch_size, self.dim_in, self.dim_in, self.dim_in, self.Ncl))
-
-        # The batch is generated by randomly sampling data patches.
-        if self.flag_batch_bootstrap:  # choose from bootstrapped objlist
-            pool = core.get_bootstrap_idx(objlist, Nbs=batch_size)
-        else:  # choose from whole objlist
-            pool = range(0, len(objlist))
-
-        idx_list = []
-        for i in range(batch_size):
-            # choose random sample in training set:
-            index = np.random.choice(pool)
-            idx_list.append(index)
-
-            tomoID = int(objlist[index]['tomo_idx'])
-
-            tomodim = data[tomoID].shape
-
-            sample_data = data[tomoID]
-            sample_target = target[tomoID]
-
-            # Get patch position:
-            x, y, z = core.get_patch_position(tomodim, p_in, objlist[index], self.Lrnd)
-
-            # Get patch:
-            patch_data   = sample_data[  z-p_in:z+p_in, y-p_in:y+p_in, x-p_in:x+p_in]
-            patch_target = sample_target[z-p_in:z+p_in, y-p_in:y+p_in, x-p_in:x+p_in]
-
-            # Process the patches in order to be used by network:
-            patch_data = (patch_data - np.mean(patch_data)) / np.std(patch_data)  # normalize
-            patch_target_onehot = to_categorical(patch_target, self.Ncl)
-
-            # Store into batch array:
-            batch_data[i, :, :, :, 0] = patch_data
-            batch_target[i] = patch_target_onehot
-
-            # Data augmentation (180degree rotation around tilt axis):
-            if np.random.uniform() < 0.5:
-                batch_data[i] = np.rot90(batch_data[i], k=2, axes=(0, 2))
-                batch_target[i] = np.rot90(batch_target[i], k=2, axes=(0, 2))
-
-        return batch_data, batch_target, idx_list
 

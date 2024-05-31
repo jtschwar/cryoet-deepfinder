@@ -255,28 +255,14 @@ def plot_history(history, filename):
         legend_names.append('class '+str(lbl))
 
     epochs = len(history['val_loss'])
-    steps_per_valid = len(history['val_loss'][0])
 
-    hist_loss_train = []
-    hist_acc_train = []
-    hist_loss_valid = []
-    hist_acc_valid = []
-    hist_f1 = []
-    hist_recall = []
-    hist_precision = []
-    for e in range(epochs):
-        hist_loss_train.append(np.mean(history['loss'         ][e][-steps_per_valid:]))
-        hist_acc_train.append( np.mean(history['acc'          ][e][-steps_per_valid:]))
-
-        hist_loss_valid.append(np.mean(history['val_loss'     ][e]))
-        hist_acc_valid.append( np.mean(history['val_acc'      ][e]))
-
-        # array_f1 = np.array(history['val_f1'       ][e]) # easier to achieve desired averaging (per class) with np array
-        # array_re = np.array(history['val_recall'   ][e])
-        # array_pr = np.array(history['val_precision'][e])
-        hist_f1.append(        np.mean(np.array(history['val_f1'       ][e]), axis=0))
-        hist_recall.append(    np.mean(np.array(history['val_recall'   ][e]), axis=0))
-        hist_precision.append( np.mean(np.array(history['val_precision'][e]), axis=0))
+    hist_loss_train = history['loss']
+    hist_acc_train = history['acc']
+    hist_loss_valid = history['val_loss']
+    hist_acc_valid = history['val_acc']
+    hist_f1 = history['val_f1']
+    hist_recall = history['val_recall']
+    hist_precision = history['val_precision']    
 
     fig = plt.figure(figsize=(15,12))
     plt.subplot(321)
