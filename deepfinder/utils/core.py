@@ -16,6 +16,8 @@ import matplotlib
 matplotlib.use('agg') # necessary else: AttributeError: 'NoneType' object has no attribute 'is_interactive'
 import matplotlib.pyplot as plt
 
+from . import copick_tools as tools
+from itertools import chain
 from . import common as cm
 
 class DeepFinder:
@@ -158,6 +160,43 @@ def get_bootstrap_idx(objlist,Nbs):
     bs_idx = np.concatenate(bs_idx)
     return bs_idx
 
+def get_copick_boostrap_idx(copickRoot,Nbs):
+
+    # Load TomoIDs 
+    tomoIDs = [run.name for run in copickRoot.runs]
+
+    labelList = []; tomoIDList = []; pickIndList = []; proteinIndList = []
+    for tomoInd in range(len(tomoIDs)):
+        copickRun = copickRoot.get_run(tomoIDs[tomoInd])
+        for proteinInd in range(len(copickRun.picks)):
+            picks = copickRun.picks[proteinInd]
+
+            nPicks = len(picks.points)
+            tomoIDList.append( [ tomoIDs[tomoInd] ] * nPicks )
+            pickIndList.append( [i for i in range(nPicks)] )
+            proteinIndList.append( [ proteinInd ] * nPicks )       
+            labelList.append( [ tools.get_pickable_object_label(copickRoot, picks.pickable_object_name) ] * nPicks ) 
+    
+    labelList = np.array(list(chain.from_iterable(labelList)))
+    tomoIDList = np.array(list(chain.from_iterable(tomoIDList)))
+    pickIndList = np.array(list(chain.from_iterable(pickIndList)))
+    proteinIndList = np.array(list(chain.from_iterable(proteinIndList)))    
+
+    # Bootstrap data so that we have equal frequencies (1/Nbs) for all classes:
+    # ->from label_list, sample Nbs objects from each class
+    bs_idx = []; tomoID_idx = []; pick_idx = []; protein_idx = []
+    lblTAB = np.unique(labelList)  # vector containing unique class labels    
+    for l in lblTAB:
+        bsIndex = np.random.choice(np.array(np.nonzero(np.array(labelList) == l))[0], Nbs)
+
+        bs_idx.append( bsIndex )
+        pick_idx.append( pickIndList[bsIndex] ) 
+        tomoID_idx.append( tomoIDList[bsIndex] )
+        protein_idx.append( proteinIndList[bsIndex] )
+
+    return { 'bs_idx': np.concatenate(bs_idx), 'tomoID_idx': np.concatenate(tomoID_idx), 
+             'protein_idx': np.concatenate(protein_idx), 'pick_idx': np.concatenate(pick_idx) }
+
 # Takes position specified in 'obj', applies random shift to it, and then checks if the patch around this position is
 # out of the tomogram boundaries. If so, the position is shifted to that patch is inside the tomo boundaries.
 # INPUTS:
@@ -190,6 +229,33 @@ def get_patch_position(tomodim, p_in, obj, Lrnd):
     #    x = np.int32( np.random.choice(range(p_in,tomodim[0]-p_in)) )
     #    y = np.int32( np.random.choice(range(p_in,tomodim[0]-p_in)) )
     #    z = np.int32( np.random.choice(range(p_in,tomodim[0]-p_in)) )
+
+def get_copick_patch_position(tomodim, p_in, Lrnd, voxelSize, copicks):
+
+    # sample at coordinates specified in obj=objlist[idx]
+    x = int( copicks.location.x / voxelSize )
+    y = int( copicks.location.y / voxelSize )
+    z = int( copicks.location.z / voxelSize )
+        
+    # Add random shift to coordinates:
+    x = x + np.random.choice(range(-Lrnd,Lrnd+1))
+    y = y + np.random.choice(range(-Lrnd,Lrnd+1))
+    z = z + np.random.choice(range(-Lrnd,Lrnd+1))
+    
+    # Shift position if too close to border:
+    if (x<p_in) : x = p_in
+    if (y<p_in) : y = p_in
+    if (z<p_in) : z = p_in
+    if (x>tomodim[2]-p_in): x = tomodim[2]-p_in
+    if (y>tomodim[1]-p_in): y = tomodim[1]-p_in
+    if (z>tomodim[0]-p_in): z = tomodim[0]-p_in
+
+    #else: # sample random position in tomogram
+    #    x = np.int32( np.random.choice(range(p_in,tomodim[0]-p_in)) )
+    #    y = np.int32( np.random.choice(range(p_in,tomodim[0]-p_in)) )
+    #    z = np.int32( np.random.choice(range(p_in,tomodim[0]-p_in)) )
+    
+    return x,y,z    
     
     return x,y,z
 

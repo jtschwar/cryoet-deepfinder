@@ -24,6 +24,7 @@ from tensorflow.keras import backend as K
 def tversky_loss(y_true, y_pred):
     alpha = 0.5
     beta = 0.5
+    epsilon = 1
 
     ones = tf.ones(tf.shape(y_true))
     p0 = y_pred  # proba that voxels are class i
@@ -32,7 +33,7 @@ def tversky_loss(y_true, y_pred):
     g1 = ones - y_true
 
     num = K.sum(p0 * g0, (0, 1, 2, 3))
-    den = num + alpha * K.sum(p0 * g1, (0, 1, 2, 3)) + beta * K.sum(p1 * g0, (0, 1, 2, 3))
+    den = num + alpha * K.sum(p0 * g1, (0, 1, 2, 3)) + beta * K.sum(p1 * g0, (0, 1, 2, 3)) + epsilon
 
     T = K.sum(num / den)  # when summing over classes, T has dynamic range [0 Ncl]
 
