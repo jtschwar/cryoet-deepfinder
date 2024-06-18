@@ -1,10 +1,8 @@
 from deepfinder.utils.target_build import TargetBuilder
 from copick.impl.filesystem import CopickRootFSSpec
-from mrc2omezarr.proc import convert_mrc_to_ngff
-import deepfinder.utils.objl as ol
-import my_polnet_utils as utils
+import deepfinder.utils.copick_tools as tools
 import numpy as np
-import os, shutil
+import os
 
 ################### Input parameters ###################
 
@@ -17,6 +15,12 @@ copickFolder = 'copick_pickathon_June2024/valid'
 # Voxel Size of Interest
 voxelSize = 10 
 
+# Target Zarr Name
+targetName = 'spheretargets'
+
+# Copick User Id
+userID = 'train-deepfinder'
+
 ##########################################################
 
 # Load CoPick root
@@ -25,59 +29,45 @@ copickRoot = CopickRootFSSpec.from_file(os.path.join(copickFolder, 'filesystem_o
 # Load TomoIDs 
 tomoIDs = [run.name for run in copickRoot.runs]
 
-# Create Temporary Empty Folder 
-os.makedirs('test',exist_ok=True)
-
 # Add Spherical Targets to Mebranes
 tbuild = TargetBuilder()
 
+# Create Empty Target Volume
+target_vol = tools.get_target_empty_tomogram(copickRoot)
+
+# Iterate Through All Runs
 for tomoInd in range(len(tomoIDs)):            
 
     # Extract TomoID and Associated Run
     tomoID = tomoIDs[tomoInd]
     copickRun = copickRoot.get_run(tomoID)
     
-    # Read Particle Coordinates and Write as XML (Necessary?)
-    xml_objects = []
+    # Read Particle Coordinates and Write as Segmentation
+    objl_coords = []
     for proteinInd in range(len(copickRun.picks)):
         picks = copickRun.picks[proteinInd]
-        classLabel = utils.get_pickable_object_label(copickRoot, picks.pickable_object_name)
+        classLabel = tools.get_pickable_object_label(copickRoot, picks.pickable_object_name)
 
         if classLabel == None:
             print('Missing Protein Label: ', picks.pickable_object_name)
             exit()
 
         for ii in range(len(picks.points)): 
-            xml_objects.append({'tomo_name': tomoID,
-                               'tomo_idx': tomoInd, 
-                               'class_label': classLabel,
+            objl_coords.append({'label': classLabel,
                                'x': picks.points[ii].location.x / voxelSize,
                                'y': picks.points[ii].location.y / voxelSize,
                                'z': picks.points[ii].location.z / voxelSize,
                                'phi': 0, 'psi': 0, 'the': 0})
 
-    # Write XML File
-    xmlFname =  os.path.join(copickFolder, 'ExperimentRun', tomoID, 'Picks', f'TS_{tomoInd}_objl.xml')
-    xmlFname = os.path.join('test',f'TS_{tomoInd}_objl.xml')
-    utils.write_xml_file(xml_objects, xmlFname)
+    # Reset Target As Empty Array 
+    # (If Membranes or Organelle Segmentations are Available, add that As Well)
+    target_vol[:] = 0
 
-    # Create Empty Target Volume
-    target_vol = utils.get_target_empty_tomogram(copickRoot)
-
-    # Generate 3D Volume with Spheres
-    objl_coords = ol.read_xml(xmlFname)
+    # Create Target For the Given Coordinates and Sphere Diameters
     target = tbuild.generate_with_spheres(objl_coords, target_vol, radius_list).astype(np.uint8)    
 
-    # Save target with Spheres:
-    mrcTargetPath = os.path.join('test',f'TS_{tomoInd}_target.mrc')
-    utils.my_write_mrc(target, mrcTargetPath, voxelSize=voxelSize)  
-
-    # Convert MRC Target into ZarrFile
-    zarrTargetPath = os.path.join(copickFolder, 'ExperimentRuns', tomoID, f'VoxelSpacing{voxelSize:.3f}', f'spheretargets.zarr')
-    convert_mrc_to_ngff(mrcTargetPath, zarrTargetPath, scale_factors=[1])
-
-# Remove the MRC Template 
-shutil.rmtree('test')
+    # Write the Target Tomogram as OME Zarr
+    tools.write_ome_zarr_segmentation(copickRun, target, voxelSize, targetName, userID)
 
 # Code for Estimating Class Weight:
 #   from sklearn.utils import class_weight
