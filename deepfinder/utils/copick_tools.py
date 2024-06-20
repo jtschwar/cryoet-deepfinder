@@ -8,13 +8,13 @@ def read_copick_tomogram_group(copickRoot, voxelSize, tomoAlgorithm, tomoID=None
     """ Find the Zarr Group Relating to a Copick Tomogram.
 
     Args:
-        copickRoot: Voxel size for the segmentation.
-        voxelSize: Name of the segmentation.
-        tomoAlgorithm: Session ID for the segmentation.
-        tomoID: 
+        copickRoot: Target Copick Run to Extract Tomogram Zarrr Group.
+        voxelSize: Name of the Tomogram.
+        tomoAlgorithm: Session ID for the Tomogram.
+        tomoID: Tomogram ID for that Dataset. 
 
     Returns:
-        CopickSegmentation: The newly created segmentation object.
+        ZarrGroup for the Tomogram object.
     """
 
     # Get First Run and Pull out Tomgram
@@ -32,14 +32,14 @@ def get_copick_tomogram(copickRoot, voxelSize=10, tomoAlgorithm='denoised', tomo
     """ Return a Tomogram from a Copick Run.
 
     Args:
-        copickRoot: Voxel size for the segmentation.
-        voxelSize: Name of the segmentation.
-        tomoAlgorithm: Session ID for the segmentation.
-        tomoID: 
+        copickRoot: Target Copick Root to Extract Tomogram.
+        voxelSize: Name of the Tomogram.
+        tomoAlgorithm: Session ID for the Tomogram.
+        tomoID: Tomogram ID for that Dataset. 
 
     Returns:
-        CopickSegmentation: The newly created segmentation object.
-    """    
+        ZarrGroup for the Tomogram object.
+    """
 
     group = read_copick_tomogram_group(copickRoot, voxelSize, tomoAlgorithm, tomoID)
 
@@ -50,12 +50,13 @@ def get_copick_tomogram_shape(copickRoot, voxelSize=10, tomoAlgorithm='denoised'
     """ Return a Tomogram Dimensions (nx, ny, nz) from a Copick Run. 
 
     Args:
-        copickRoot: Voxel size for the segmentation.
-        voxelSize: Name of the segmentation.
-        tomoAlgorithm: Session ID for the segmentation.
+        copickRoot: Target Copick Run to Extract Tomogram Dimensions.
+        voxelSize: Name of the Tomogram.
+        tomoAlgorithm: Session ID for the Tomogram.
+        tomoID: Tomogram ID for that Dataset. 
 
     Returns:
-        CopickSegmentation: The newly created segmentation object.
+        TomogrameShape
     """
 
     # Return Volume Shape
@@ -63,16 +64,35 @@ def get_copick_tomogram_shape(copickRoot, voxelSize=10, tomoAlgorithm='denoised'
 
 def get_target_empty_tomogram(copickRoot, voxelSize=10, tomoAlgorithm='denoised'):
     """ Return an Empty Tomogram with Equivalent Dimensions (nx, ny, nz) from a Copick Run.
-
     Args:
-        copickRoot: Voxel size for the segmentation.
-        voxelSize: Name of the segmentation.
-        tomoAlgorithm: Session ID for the segmentation.
+        copickRoot: Target Copick Run to Extract Empty Tomogram.
+        voxelSize: Name of the Tomogram.
+        tomoAlgorithm: Session ID for the Tomogram.
+
     Returns:
-        CopickSegmentation: The newly created segmentation object.
+        A Tomogram Composed of Zeros with the Same Shape as in Copick Project.
+    """
+    
+    return np.zeros(get_copick_tomogram_shape(copickRoot, voxelSize, tomoAlgorithm), dtype=np.int8)
+
+def get_copick_segmentation(copickRun, segmentationName = "test-segmentation7" , userID = 'deepfinder'):
+    """ Return a Specified Copick Segmentation.
+    Args:
+        copickRun: Target Copick Run to Extract Tomogram.
+        segmentationName: Name of the Segmentation.
+        userID: User who Created the Segmentation.
+
+    Returns:
+        The Segmentation within that Copick-Run.
     """
 
-    return np.zeros(get_copick_tomogram_shape(copickRoot, voxelSize, tomoAlgorithm), dtype=np.int8)
+    # Get the Segmentation from the Following Copick Run
+    seg = copickRun.get_segmentations(name=segmentationName, user_id=userID)[0]
+
+    # Return the Corresponding Segmentation Volume 
+    store = seg.zarr()
+
+    return zarr.open(store, mode="r")[0]
 
 def get_ground_truth_coordinates(copickRun, voxelSize, proteinIndex):
     """ Get the Ground Truth Coordinates From Copick and Return as a Numpy Array.
@@ -317,7 +337,6 @@ def ome_zarr_axes() -> List[Dict[str, str]]:
         },
     ]
 
-
 def ome_zarr_transforms(voxel_size: float) -> List[Dict[str, Any]]:
     """
     Return a list of dictionaries defining the coordinate transformations of OME-Zarr dataset.
@@ -342,14 +361,15 @@ def write_ome_zarr_segmentation(run, inputSegmentVol, voxelSize=10, segmentation
     """
 
     # Create a new segmentation or Read Previous Segmentation
-    try:    seg = run.new_segmentation(voxel_size=voxelSize, name=segmentationName, session_id=sessionID, is_multilabel=True, user_id=userID)
-    except: seg = run.get_segmentations(name=segmentationName, user_id=userID, session_id = sessionID)[0]   
+    try:
+        seg = run.new_segmentation(voxel_size=voxelSize, name=segmentationName, session_id=sessionID, is_multilabel=True, user_id=userID)
+    except:
+        seg = run.get_segmentations(name=segmentationName, user_id=userID, session_id = sessionID)[0]   
 
     # Write the zarr file
     loc = seg.zarr()
     root_group = zarr.group(loc, overwrite=True)
 
-    # Write the OME Zarr Segmentation
     ome_zarr.writer.write_multiscale(
                 [inputSegmentVol],
                 group=root_group,
