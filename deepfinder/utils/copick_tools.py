@@ -4,6 +4,13 @@ import json, zarr, starfile, os
 import ome_zarr.writer
 import numpy as np
 
+def get_copick_project_tomoIDs(copickRoot):
+
+    copickRoot = CopickRootFSSpec.from_file(copickRoot)
+    tomoIDs = [run.name for run in copickRoot.runs]
+
+    return tomoIDs
+
 def read_copick_tomogram_group(copickRoot, voxelSize, tomoAlgorithm, tomoID=None):
     """ Find the Zarr Group Relating to a Copick Tomogram.
 

@@ -14,7 +14,6 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
 
 from copick.impl.filesystem import CopickRootFSSpec
-from .utils import copick_tools as copicktools
 from .utils import common as cm
 from .utils import core
 from . import callbacks

@@ -7,18 +7,18 @@
 
 # This file contains classes/functions that are judged not necessary for the user.
 
-import numpy as np
-import h5py
-import os
-import sys
-
+import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('agg') # necessary else: AttributeError: 'NoneType' object has no attribute 'is_interactive'
-import matplotlib.pyplot as plt
 
-from . import copick_tools as tools
+from copick.impl.filesystem import CopickRootFSSpec
+from . import copick_tools as copicktools
 from itertools import chain
 from . import common as cm
+from tqdm import tqdm
+import h5py, os, sys
+import numpy as np
+
 
 class DeepFinder:
     def __init__(self):

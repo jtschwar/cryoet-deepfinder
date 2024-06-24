@@ -1,4 +1,4 @@
-from deepfinder.training import Train
+from deepfinder.training_mrc import Train
 import deepfinder.utils.objl as ol
 from deepfinder.utils.dataloader import Dataloader
 import os
