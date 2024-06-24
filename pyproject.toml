@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jdeep-finder"
+requires-python = ">=3.9"
+classifiers = [
+    "License :: GPL-3.0",
+]
+
+version = "0.4.0"
+dependencies = [
+    "lxml",
+    "numpy",
+    "copick",
+    "trimesh",    
+    "mrcfile",
+    "matplotlib",    
+    "scikit-learn",
+    "scikit-image",
+]
+
+authors = [
+  {name = "Jonathan Schwartz", email = "jonathan.schwartz@czii.org"},
+  {name = "Kyle I. S. Harrington", email = "kyle@kyleharrington.com"},
+]
+
+description = "Definitions for a collaborative cryoET annotation tool."
+readme = "README.md"
+license = {file = "LICENSE"}
+keywords = ["cryoet", "cryo-et", "tomography", "annotation", "segmentation", "collaborative", "copick"]

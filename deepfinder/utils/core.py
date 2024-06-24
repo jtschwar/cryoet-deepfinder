@@ -134,6 +134,24 @@ def load_dataset(path_data, path_target, dset_name='dataset'):
         target_list.append(target)
     return data_list, target_list
 
+def load_copick_datasets(copickPath, train_instance, tomoIDs = None):
+    
+    data_list   = {}; target_list = {}
+
+    copickRoot = CopickRootFSSpec.from_file(copickPath)
+    if tomoIDs is None:  tomoIDs = [run.name for run in copickRoot.runs]
+
+    print(f'Loading Targets and Tomograms for the Following Runs: {list(tomoIDs)}') 
+    for idx in tqdm(range(len(tomoIDs))):
+        target_list[tomoIDs[idx]] = copicktools.get_copick_segmentation( copickRoot.get_run(tomoIDs[idx]), train_instance.labelName, train_instance.labelUserID)[:] 
+        data_list[tomoIDs[idx]] = copicktools.read_copick_tomogram_group(copickRoot, train_instance.voxelSize, train_instance.tomoAlg, tomoIDs[idx])[0][:]
+
+        if data_list[tomoIDs[idx]].shape != target_list[tomoIDs[idx]].shape:
+            print(f'DeepFinder Message: tomogram and target for run {tomoIDs[idx]} are not of same size!')
+            sys.exit()
+
+    return data_list, target_list
+
 # This function applies bootstrap (i.e. re-sampling) in case of unbalanced classes.
 # Given an objlist containing objects from various classes, this function outputs an equal amount of objects for each
 # class, each objects being uniformely sampled inside its class set.
@@ -160,12 +178,13 @@ def get_bootstrap_idx(objlist,Nbs):
     bs_idx = np.concatenate(bs_idx)
     return bs_idx
 
-def get_copick_boostrap_idx(copickRoot,Nbs):
+def query_available_picks(copickRoot, tomoIDs=None):
 
-    # Load TomoIDs 
-    tomoIDs = [run.name for run in copickRoot.runs]
+    # Load TomoIDs - Default is Read All TomoIDs from Path
+    if tomoIDs is None:  tomoIDs = [run.name for run in copickRoot.runs]
 
     labelList = []; tomoIDList = []; pickIndList = []; proteinIndList = []
+    proteinCoordsList = []
     for tomoInd in range(len(tomoIDs)):
         copickRun = copickRoot.get_run(tomoIDs[tomoInd])
         for proteinInd in range(len(copickRun.picks)):
@@ -174,28 +193,38 @@ def get_copick_boostrap_idx(copickRoot,Nbs):
             nPicks = len(picks.points)
             tomoIDList.append( [ tomoIDs[tomoInd] ] * nPicks )
             pickIndList.append( [i for i in range(nPicks)] )
-            proteinIndList.append( [ proteinInd ] * nPicks )       
-            labelList.append( [ tools.get_pickable_object_label(copickRoot, picks.pickable_object_name) ] * nPicks ) 
-    
+            proteinIndList.append( [ proteinInd ] * nPicks )   
+            
+            proteinCoordsList.append( picks.points )
+            
+            labelList.append( [copicktools.get_pickable_object_label(copickRoot, picks.pickable_object_name) ] * nPicks )
+
     labelList = np.array(list(chain.from_iterable(labelList)))
     tomoIDList = np.array(list(chain.from_iterable(tomoIDList)))
     pickIndList = np.array(list(chain.from_iterable(pickIndList)))
-    proteinIndList = np.array(list(chain.from_iterable(proteinIndList)))    
+    proteinIndList = np.array(list(chain.from_iterable(proteinIndList)))
+    proteinCoordsList = np.array(list(chain.from_iterable(proteinCoordsList)))
+
+    return {'labelList': labelList, 'tomoIDlist': tomoIDList, 'pickIndList': pickIndList, 'proteinIndList': proteinIndList, 'proteinCoordsList': proteinCoordsList}   
+
+def get_copick_boostrap_idx(organizedPicksDict, Nbs):
 
     # Bootstrap data so that we have equal frequencies (1/Nbs) for all classes:
     # ->from label_list, sample Nbs objects from each class
-    bs_idx = []; tomoID_idx = []; pick_idx = []; protein_idx = []
-    lblTAB = np.unique(labelList)  # vector containing unique class labels    
+    bs_idx = []; tomoID_idx = []; pick_idx = []; protein_idx = []; protein_picks = []
+    lblTAB = np.unique(organizedPicksDict['labelList'])  # vector containing unique class labels    
     for l in lblTAB:
-        bsIndex = np.random.choice(np.array(np.nonzero(np.array(labelList) == l))[0], Nbs)
+        bsIndex = np.random.choice(np.array(np.nonzero(organizedPicksDict['labelList'] == l))[0], Nbs)
 
         bs_idx.append( bsIndex )
-        pick_idx.append( pickIndList[bsIndex] ) 
-        tomoID_idx.append( tomoIDList[bsIndex] )
-        protein_idx.append( proteinIndList[bsIndex] )
+        pick_idx.append( organizedPicksDict['pickIndList'][bsIndex] ) 
+        tomoID_idx.append( organizedPicksDict['tomoIDlist'][bsIndex] )
+        protein_idx.append( organizedPicksDict['proteinIndList'][bsIndex] )
+        protein_picks.append( organizedPicksDict['proteinCoordsList'][bsIndex] )
 
     return { 'bs_idx': np.concatenate(bs_idx), 'tomoID_idx': np.concatenate(tomoID_idx), 
-             'protein_idx': np.concatenate(protein_idx), 'pick_idx': np.concatenate(pick_idx) }
+             'protein_idx': np.concatenate(protein_idx), 'pick_idx': np.concatenate(pick_idx),
+             'protein_coords': np.concatenate(protein_picks) }
 
 # Takes position specified in 'obj', applies random shift to it, and then checks if the patch around this position is
 # out of the tomogram boundaries. If so, the position is shifted to that patch is inside the tomo boundaries.

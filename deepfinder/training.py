@@ -17,239 +17,16 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import precision_recall_fscore_support
 from sklearn.utils.class_weight import compute_class_weight
 
+from .utils import common as cm
+from .utils import core
+from . import callbacks
 from . import models
 from . import losses
-from .utils import core
-from .utils import common as cm
 
 # Enable mixed precision
 from tensorflow.keras import mixed_precision
 policy = mixed_precision.Policy('mixed_float16')
 mixed_precision.set_global_policy(policy)
-
-# Custom callback to save model weights every 10 epochs
-class SaveWeightsCallback(tf.keras.callbacks.Callback):
-    def __init__(self, path_out):
-        super().__init__()
-        self.path_out = path_out
-    def on_epoch_end(self, epoch, logs=None):
-        if (epoch + 1) % 10 == 0:
-            self.model.save(self.path_out + f'net_weights_epoch{epoch + 1}.h5')       
-
-# Callback to clear session to free up memory after each epoch
-class ClearMemoryCallback(tf.keras.callbacks.Callback):
-    def on_epoch_end(self, epoch, logs=None):
-        tf.keras.backend.clear_session()
-        gc.collect()   
-
-def log_images_func(model, validation_data, steps):
-    val_data, val_target = [], []
-    for step, (x, y) in enumerate(validation_data):
-        if step >= steps:
-            break
-        val_data.append(x.numpy())
-        val_target.append(y.numpy())
-    
-    val_data = np.concatenate(val_data, axis=0)
-    val_target = np.concatenate(val_target, axis=0)
-
-    val_predict = model.predict(val_data)
-    
-    return val_data, val_predict        
-
-class ImageLogger(tf.keras.callbacks.Callback):
-    def __init__(self, writer, log_images_func, validation_data, steps, prefix='train'):
-        super().__init__()
-        self.writer = writer
-        self.log_images_func = log_images_func
-        self.validation_data = validation_data
-        self.steps = steps
-        self.prefix = prefix
-
-    def extract_vol_infrance(self, inVol):
-        return np.expand_dims(np.expand_dims(np.array(inVol), axis=0), axis=-1)
-
-    def log_images(self, writer, images, predictions, step, prefix='train'):
-        with writer.as_default():
-            for i, (image, prediction) in enumerate(zip(images, predictions)):
-                
-                img_tensor = self.extract_vol_infrance(image)
-                pred_tensor = self.extract_vol_infrance(prediction)
-
-                # Ensure tensors are not None
-                if img_tensor is not None and pred_tensor is not None:
-                    # Check the rank of the tensor
-                    if len(img_tensor.shape) == 4:
-
-                        # Select a middle slice for visualization
-                        img_tensor = img_tensor[img_tensor.shape[0] // 2, :, :]
-                        pred_tensor = pred_tensor[pred_tensor.shape[0] // 2, :, :]
-
-                        # Add batch and channel dimensions
-                        img_tensor = np.expand_dims(np.expand_dims(img_tensor, axis=0), axis=-1)
-                        pred_tensor = np.expand_dims(np.expand_dims(pred_tensor, axis=0), axis=-1)
-
-                        tf.summary.image(f"{prefix}_image_{i}", img_tensor, step=step)
-                        tf.summary.image(f"{prefix}_prediction_{i}", pred_tensor, step=step)
-
-class TrainingPlotCallback(tf.keras.callbacks.Callback):
-    def __init__(self, validation_data, validation_steps, path_out, label_list):
-        super().__init__()
-        self.validation_data = validation_data
-        self.validation_steps = validation_steps
-        self.path_out = path_out
-        self.label_list = label_list
-        self.history = {
-            'loss': [], 'acc': [], 'val_loss': [], 'val_acc': [],
-            'val_f1': [], 'val_recall': [], 'val_precision': []
-        }
-
-    def on_epoch_end(self, epoch, logs=None):
-        # Append training metrics
-        self.history['loss'].append(logs.get('loss'))
-        self.history['acc'].append(logs.get('accuracy'))
-        self.history['val_loss'].append(logs.get('val_loss'))
-        self.history['val_acc'].append(logs.get('val_accuracy'))
-
-        # Retrieve validation data and predictions
-        val_data, val_target = [], []
-        for step, (x, y) in enumerate(self.validation_data):
-            if step >= self.validation_steps:
-                break
-            val_data.append(x.numpy())
-            val_target.append(y.numpy())
-
-        val_data = np.concatenate(val_data, axis=0)
-        val_target = np.concatenate(val_target, axis=0)
-
-        val_predict = np.argmax(self.model.predict(val_data), axis=-1)
-        val_targ = np.argmax(val_target, axis=-1)
-
-        # Calculate precision, recall, and F1-score
-        scores = precision_recall_fscore_support(val_targ.flatten(), val_predict.flatten(), average=None, labels=self.label_list)
-
-        self.history['val_f1'].append(scores[2])
-        self.history['val_recall'].append(scores[1])
-        self.history['val_precision'].append(scores[0])
-
-        # Save history and plot
-        core.save_history(self.history, self.path_out + 'net_train_history.h5')
-        core.plot_history(self.history, self.path_out + 'net_train_history_plot.png')
-
-class TargetBuilder(core.DeepFinder):
-    def __init__(self):
-        core.DeepFinder.__init__(self)
-
-        self.remove_flag = False # if true, places '0' at object voxels, instead of 'lbl'.
-                                 # Usefull in annotation tool, for removing objects from target
-
-    # Generates segmentation targets from object list. Here macromolecules are annotated with their shape.
-    # INPUTS
-    #   objl: list of dictionaries. Needs to contain [phi,psi,the] Euler angles for orienting the shapes.
-    #   target_array: 3D numpy array that initializes the training target. Allows to pass an array already containing annotated structures like membranes.
-    #                 index order of array should be [z,y,x]
-    #   ref_list: list of binary 3D arrays (expected to be cubic). These reference arrays contain the shape of macromolecules ('1' for 'is object' and '0' for 'is not object')
-    #             The references order in list should correspond to the class label
-    #             For ex: 1st element of list -> reference of class 1
-    #                     2nd element of list -> reference of class 2 etc.
-    # OUTPUT
-    #   target_array: 3D numpy array. '0' for background class, {'1','2',...} for object classes.
-    def generate_with_shapes(self, objl, target_array, ref_list):
-        """Generates segmentation targets from object list. Here macromolecules are annotated with their shape.
-
-        Args:
-            objl (list of dictionaries): Needs to contain [phi,psi,the] Euler angles for orienting the shapes.
-            target_array (3D numpy array): array that initializes the training target. Allows to pass an array already containing annotated structures like membranes.
-                index order of array should be [z,y,x]
-            ref_list (list of 3D numpy arrays): These reference arrays are expected to be cubic and to contain the shape of macromolecules ('1' for 'is object' and '0' for 'is not object')
-                The references order in list should correspond to the class label.
-                For ex: 1st element of list -> reference of class 1; 2nd element of list -> reference of class 2 etc.
-
-        Returns:
-            3D numpy array: Target array, where '0' for background class, {'1','2',...} for object classes.
-        """
-        self.check_arguments(objl, target_array, ref_list)
-
-        N = len(objl)
-        dim = target_array.shape
-        for p in range(len(objl)):
-            self.display('Annotating object ' + str(p + 1) + ' / ' + str(N) + ' ...')
-            lbl = int(objl[p]['label'])
-            x = int(objl[p]['x'])
-            y = int(objl[p]['y'])
-            z = int(objl[p]['z'])
-            phi = objl[p]['phi']
-            psi = objl[p]['psi']
-            the = objl[p]['the']
-
-            ref = ref_list[lbl - 1]
-            centeroffset = np.int_(np.floor(ref.shape[0] / 2)) # here we expect ref to be cubic
-
-            # Rotate ref:
-            if phi!=None and psi!=None and the!=None:
-                ref = cm.rotate_array(ref, (phi, psi, the))
-                ref = np.int8(np.round(ref))
-
-            # Get the coordinates of object voxels in target_array
-            obj_voxels = np.nonzero(ref == 1)
-            x_vox = obj_voxels[2] + x - centeroffset #+1
-            y_vox = obj_voxels[1] + y - centeroffset #+1
-            z_vox = obj_voxels[0] + z - centeroffset #+1
-
-            for idx in range(x_vox.size):
-                xx = x_vox[idx]
-                yy = y_vox[idx]
-                zz = z_vox[idx]
-                if xx >= 0 and xx < dim[2] and yy >= 0 and yy < dim[1] and zz >= 0 and zz < dim[0]:  # if in tomo bounds
-                    if self.remove_flag:
-                        target_array[zz, yy, xx] = 0
-                    else:
-                        target_array[zz, yy, xx] = lbl
-
-        return np.int8(target_array)
-
-    def check_arguments(self, objl, target_array, ref_list):
-        self.is_list(objl, 'objl')
-        self.is_3D_nparray(target_array, 'target_array')
-        self.is_list(ref_list, 'ref_list')
-
-    # Generates segmentation targets from object list. Here macromolecules are annotated with spheres.
-    # This method does not require knowledge of the macromolecule shape nor Euler angles in the objl.
-    # On the other hand, it can be that a network trained with 'sphere targets' is less accurate than with 'shape targets'
-    # INPUTS
-    #   objl: list of dictionaries.
-    #   target_array: 3D numpy array that initializes the training target. Allows to pass an array already containing annotated structures like membranes.
-    #                 index order of array should be [z,y,x]
-    #   radius_list: list of sphere radii (in voxels).
-    #             The radii order in list should correspond to the class label
-    #             For ex: 1st element of list -> sphere radius for class 1
-    #                     2nd element of list -> sphere radius for class 2 etc.
-    # OUTPUT
-    #   target_array: 3D numpy array. '0' for background class, {'1','2',...} for object classes.
-    def generate_with_spheres(self, objl, target_array, radius_list):
-        """Generates segmentation targets from object list. Here macromolecules are annotated with spheres.
-        This method does not require knowledge of the macromolecule shape nor Euler angles in the objl.
-        On the other hand, it can be that a network trained with 'sphere targets' is less accurate than with 'shape targets'.
-
-        Args:
-            objl (list of dictionaries)
-            target_array (3D numpy array): array that initializes the training target. Allows to pass an array already containing annotated structures like membranes.
-                index order of array should be [z,y,x]
-            radius_list (list of int): contains sphere radii per class (in voxels).
-                The radii order in list should correspond to the class label.
-                For ex: 1st element of list -> sphere radius for class 1, 2nd element of list -> sphere radius for class 2 etc.
-
-        Returns:
-            3D numpy array: Target array, where '0' for background class, {'1','2',...} for object classes.
-        """
-        Rmax = max(radius_list)
-        dim = [2*Rmax, 2*Rmax, 2*Rmax]
-        ref_list = []
-        for idx in range(len(radius_list)):
-            ref_list.append(cm.create_sphere(dim, radius_list[idx]))
-        target_array = self.generate_with_shapes(objl, target_array, ref_list)
-        return target_array
-
 
 # TODO: add method for resuming training. It should load existing weights and train_history. So when restarting, the plot curves show prececedent epochs
 class Train(core.DeepFinder):
@@ -363,8 +140,8 @@ class Train(core.DeepFinder):
         writer = tf.summary.create_file_writer(log_dir)        
         tf_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, profile_batch='500,520')
 
-        gpus = tf.config.list_logical_devices('GPU')
-        strategy = tf.distribute.MirroredStrategy(gpus)
+        # gpus = tf.config.list_logical_devices('GPU')
+        # strategy = tf.distribute.MirroredStrategy(gpus)
 
         # Build network (not in constructor, else not possible to init model with weights from previous train round):
         self.net.compile(optimizer=self.optimizer, loss=self.loss, metrics=['accuracy'])
@@ -376,15 +153,16 @@ class Train(core.DeepFinder):
         valid_dataset = self.create_tf_dataset(data_list, target_list, objlist_valid, self.batch_size, self.dim_in, self.Ncl, self.flag_batch_bootstrap)
 
         # Callbacks for Save weights and Clear Memory
-        save_weights_callback = SaveWeightsCallback(self.path_out)
-        clear_memory_callback = ClearMemoryCallback()
+        # clear_memory_callback = callbacks.ClearMemoryCallback()        
+        save_weights_callback = callbacks.SaveWeightsCallback(self.path_out)
         learning_rate_callback = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=1e-6, verbose=1)
-        plotting_callback = TrainingPlotCallback(validation_data=valid_dataset, validation_steps=self.steps_per_valid, path_out=self.path_out, label_list=self.label_list)
 
         # Load whole dataset:
         if self.flag_direct_read == False:
             self.display('Loading dataset ...')
             data_list, target_list = core.load_dataset(path_data, path_target, self.h5_dset_name)
+
+        plotting_callback = callbacks.TrainingPlotCallback(validation_data=valid_dataset, validation_steps=self.steps_per_valid, path_out=self.path_out, label_list=self.label_list)
 
         self.display('Launch training ...')
 
@@ -400,7 +178,7 @@ class Train(core.DeepFinder):
             verbose=1
         )
 
-        self.display("Model took %0.2f seconds to train" % np.sum(process_time))
+        # self.display("Model took %0.2f seconds to train" % np.sum(process_time))
         self.net.save(self.path_out+'net_weights_FINAL.h5')
 
     def check_arguments(self, path_data, path_target, objlist_train, objlist_valid):

@@ -1,4 +1,4 @@
-import my_polnet_utils as utils
+from deepfinder.utils import copick_tools as tools
 import os, glob, shutil
 import numpy as np
 import starfile
@@ -27,13 +27,13 @@ for tomoInd in range(len(tomoIDs)):
     # First Start off With Converting Coordinates into XML File (Optional)
     for protein in proteinsFullName:
         path = os.path.join(tomo_path,tomoID,f'{protein}.json')
-        coords = utils.read_copick_json(path) 
-        utils.write_relion_output(protein, tomoID, coords, tomo_path)
+        coords = tools.read_copick_json(path) 
+        tools.write_relion_output(protein, tomoID, coords, tomo_path)
 
     # Create Membrane Segmentation (Optional)
     # utils.segment_experimental_tomogram()
 
-    Read the Star File and Convert to XML
+    # Read the Star File and Convert to XML
     xml_objects = []
     for protein in range(len(proteinsFullName)):
         path = os.path.join(tomo_path,tomoID,f'{tomoID}_{proteinsFullName[protein]}.star')
@@ -45,17 +45,17 @@ for tomoInd in range(len(tomoIDs)):
     elif tomoInd < len(tomoIDs) - 1:    split = 'valid'
     else:                               split = 'test'
 
-    Process ctf-Deconvolved Tomograms
+    # Process ctf-Deconvolved Tomograms
     os.makedirs(os.path.join(tomo_path, 'dctf'),exist_ok=True)
-    utils.process_experimental_input(tomo_path, tomoInd, tomoID, 'dctf', split, xml_objects )
+    tools.process_experimental_input(tomo_path, tomoInd, tomoID, 'dctf', split, xml_objects )
 
     # Process Denoised Tomograms
     os.makedirs(os.path.join(tomo_path, 'Denoised'),exist_ok=True)    
-    utils.process_experimental_input(tomo_path, tomoInd, tomoID, 'Denoised', split, xml_objects )
+    tools.process_experimental_input(tomo_path, tomoInd, tomoID, 'Denoised', split, xml_objects )
 
     # Process WBP Tomograms
     os.makedirs(os.path.join(tomo_path, 'WBP'),exist_ok=True)        
-    utils.process_experimental_input(tomo_path, tomoInd, tomoID, 'WBP', split, xml_objects )
+    tools.process_experimental_input(tomo_path, tomoInd, tomoID, 'WBP', split, xml_objects )
 
 # Code for Estimating Class Weight:
 #   from sklearn.utils import class_weight
