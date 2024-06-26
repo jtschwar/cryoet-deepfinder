@@ -15,7 +15,7 @@ def cli(ctx):
 @click.option("--radius-list", type=str, required=True, help="Comma separated sizes.")
 @click.option("--tomo-ids", type=str, required=True, help="Comma separated list of Tomogram IDs.")
 @click.option("--voxel-size", type=float, default=10, help="Voxel size.")
-@click.option("--tomo-algorithm", type=str, default="wbp", help="Tomogram algorithm.")
+@click.option("--tomogram-algorithm", type=str, default="wbp", help="Tomogram algorithm.")
 @click.option("--target-name", type=str, default="spheretargets", help="Target name.")
 @click.option("--user-id", type=str, default="train-deepfinder", help="User ID.")
 def create(
