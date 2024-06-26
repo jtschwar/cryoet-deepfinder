@@ -6,14 +6,14 @@ build-backend = "hatchling.build"
 name = "jdeep-finder"
 requires-python = ">=3.9"
 classifiers = [
-    "License :: GPL-3.0",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
 ]
 
 version = "0.4.0"
 dependencies = [
     "lxml",
     "numpy",
-    "copick",
+    "copick @ git+https://github.com/uermel/copick.git@397d630",
     "trimesh",    
     "mrcfile",
     "matplotlib",    
