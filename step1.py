@@ -14,14 +14,14 @@ def cli(ctx):
 @click.option("--config", type=str, required=True, help="Path to the configuration file.")
 @click.option("--radius_list", type=str, required=True, help="Comma separated sizes.")
 @click.option("--tomoIDs", type=str, required=True, help="Comma separated list of Tomogram IDs.")
-@click.option("--voxelSize", type=int, default=10, help="Voxel size.")
+@click.option("--voxelSize", type=float, default=10, help="Voxel size.")
 @click.option("--targetName", type=str, default="spheretargets", help="Target name.")
 @click.option("--userID", type=str, default="train-deepfinder", help="User ID.")
 def create(
     config: str,
     radius_list: str,
     tomoIDs: str,
-    voxelSize = 10,
+    voxelSize: float = 10,
     targetName: str = 'spheretargets',
     userID: str = 'train-deepfinder',
 ):
