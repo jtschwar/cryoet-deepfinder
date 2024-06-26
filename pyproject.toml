@@ -14,7 +14,7 @@ dependencies = [
     "tensorflow>=2.11.1",
     "lxml>=4.9.3",
     "numpy<2",
-    "copick @ git+https://github.com/uermel/copick.git@8113a17",
+    "copick @ git+https://github.com/uermel/copick.git@82234ce",
     "trimesh",    
     "mrcfile>=1.4.3",
     "matplotlib>=3.8.1",
