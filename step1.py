@@ -12,18 +12,18 @@ def cli(ctx):
 
 @cli.command()
 @click.option("--config", type=str, required=True, help="Path to the configuration file.")
-@click.option("--radius_list", type=str, required=True, help="Comma separated sizes.")
-@click.option("--tomoIDs", type=str, required=True, help="Comma separated list of Tomogram IDs.")
-@click.option("--voxelSize", type=float, default=10, help="Voxel size.")
-@click.option("--targetName", type=str, default="spheretargets", help="Target name.")
-@click.option("--userID", type=str, default="train-deepfinder", help="User ID.")
+@click.option("--radius-list", type=str, required=True, help="Comma separated sizes.")
+@click.option("--tomo-ids", type=str, required=True, help="Comma separated list of Tomogram IDs.")
+@click.option("--voxel-size", type=float, default=10, help="Voxel size.")
+@click.option("--target-name", type=str, default="spheretargets", help="Target name.")
+@click.option("--user-id", type=str, default="train-deepfinder", help="User ID.")
 def create(
     config: str,
     radius_list: str,
-    tomoIDs: str,
-    voxelSize: float = 10,
-    targetName: str = 'spheretargets',
-    userID: str = 'train-deepfinder',
+    tomo_ids: str,
+    voxel_size: float = 10,
+    target_name: str = 'spheretargets',
+    user_id: str = 'train-deepfinder',
 ):
     # Load CoPick root
     copickRoot = copick.from_file(config)
@@ -31,8 +31,8 @@ def create(
     # List for How Large the Target Sizes should be
     radius_list = [int(x) for x in radius_list.split(',')]
 
-    # Load TomoIDs
-    tomoIDs = tomoIDs.split(',')
+    # Load tomo_ids
+    tomo_ids = tomo_ids.split(',')
 
     # Add Spherical Targets to Mebranes
     tbuild = TargetBuilder()
@@ -41,10 +41,10 @@ def create(
     target_vol = tools.get_target_empty_tomogram(copickRoot)
 
     # Iterate Through All Runs
-    for tomoInd in range(len(tomoIDs)):
+    for tomoInd in range(len(tomo_ids)):
 
         # Extract TomoID and Associated Run
-        tomoID = tomoIDs[tomoInd]
+        tomoID = tomo_ids[tomoInd]
         copickRun = copickRoot.get_run(tomoID)
 
         # Read Particle Coordinates and Write as Segmentation
@@ -59,9 +59,9 @@ def create(
 
             for ii in range(len(picks.points)):
                 objl_coords.append({'label': classLabel,
-                                    'x': picks.points[ii].location.x / voxelSize,
-                                    'y': picks.points[ii].location.y / voxelSize,
-                                    'z': picks.points[ii].location.z / voxelSize,
+                                    'x': picks.points[ii].location.x / voxel_size,
+                                    'y': picks.points[ii].location.y / voxel_size,
+                                    'z': picks.points[ii].location.z / voxel_size,
                                     'phi': 0, 'psi': 0, 'the': 0})
 
         # Reset Target As Empty Array
@@ -72,7 +72,7 @@ def create(
         target = tbuild.generate_with_spheres(objl_coords, target_vol, radius_list).astype(np.uint8)
 
         # Write the Target Tomogram as OME Zarr
-        tools.write_ome_zarr_segmentation(copickRun, target, voxelSize, targetName, userID)
+        tools.write_ome_zarr_segmentation(copickRun, target, voxel_size, target_name, user_id)
 
 if __name__ == "__main__":
     cli()
