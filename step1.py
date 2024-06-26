@@ -38,7 +38,7 @@ def create(
     tbuild = TargetBuilder()
 
     # Create Empty Target Volume
-    target_vol = tools.get_target_empty_tomogram(copickRoot)
+    target_vol = tools.get_target_empty_tomogram(copickRoot, voxelSize=voxel_size)
 
     # Iterate Through All Runs
     for tomoInd in range(len(tomo_ids)):
