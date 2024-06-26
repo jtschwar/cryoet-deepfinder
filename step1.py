@@ -15,6 +15,7 @@ def cli(ctx):
 @click.option("--radius-list", type=str, required=True, help="Comma separated sizes.")
 @click.option("--tomo-ids", type=str, required=True, help="Comma separated list of Tomogram IDs.")
 @click.option("--voxel-size", type=float, default=10, help="Voxel size.")
+@click.option("--tomo-algorithm", type=str, default="wbp", help="Tomogram algorithm.")
 @click.option("--target-name", type=str, default="spheretargets", help="Target name.")
 @click.option("--user-id", type=str, default="train-deepfinder", help="User ID.")
 def create(
@@ -22,6 +23,7 @@ def create(
     radius_list: str,
     tomo_ids: str,
     voxel_size: float = 10,
+    tomogram_algorithm: str = 'wbp',
     target_name: str = 'spheretargets',
     user_id: str = 'train-deepfinder',
 ):
@@ -38,7 +40,7 @@ def create(
     tbuild = TargetBuilder()
 
     # Create Empty Target Volume
-    target_vol = tools.get_target_empty_tomogram(copickRoot, voxelSize=voxel_size)
+    target_vol = tools.get_target_empty_tomogram(copickRoot, voxelSize=voxel_size, tomoAlgorithm=tomogram_algorithm)
 
     # Iterate Through All Runs
     for tomoInd in range(len(tomo_ids)):
