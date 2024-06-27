@@ -5,25 +5,25 @@ import os, glob
 #############################################################################
 
 # Load dataset:
-path_train = f'copick_pickathon_June2024/train/filesystem_overlay_only.json'
-path_valid = f'copick_pickathon_June2024/valid/filesystem_overlay_only.json'
+path_train = f'relative/path/to/copick/project/training'
+path_valid = f'relative/path/to/copick/project/validation'
 
 # Copick Input Parameters
 trainVoxelSize        = 10
 trainTomoAlg          = 'denoised'
 
 # Path To Save Training Results
-output_path = f'copick_pickathon_June2024/{trainTomoAlg}_training_results/'
+output_path = f'relative/path/to/copick/project/{trainTomoAlg}_training_results/'
 
 # Input parameters:
-Nclass = 8
-dim_in = 52  # patch size
+Nclass = 3
+dim_in = 52  # patch size 
 
 # Initialize training task:
 trainer = Train(Ncl=Nclass, dim_in=dim_in)
 trainer.path_out         = output_path # output path
-trainer.batch_size       = 15
-trainer.epochs           = 65
+trainer.batch_size       = 5
+trainer.epochs           = 20
 trainer.steps_per_epoch  = 250
 trainer.Nvalid           = 20 # steps per validation
 trainer.Lrnd             = 13 # random shifts when sampling patches (data augmentation)
@@ -34,12 +34,11 @@ trainer.flag_batch_bootstrap = True
 trainer.labelName        = 'spheretargets'
 trainer.labelUserID      = 'train-deepfinder'
 
-# Experimental Weights - [background, membrane, apo, betaAmylase, betaGal, ribo80S, thg, vlp]
-trainer.class_weight     = None
-# trainer.class_weights    = {0:1, 1:3000, 2:6500, 3:70790, 4:800, 5:20225, 6:10300, 7:28000}
+# keras syntax: class_weights={0:1., 1:10.} every instance of class 1 is treated as 10 instances of class 0
+trainer.class_weights = None
 
 # Use following line if you want to resume a previous training session:
-# trainer.net.load_weights('synthetic_dataset_10A/training_results/net_weights_FINAL.h5')
+# trainer.net.load_weights('relative/path/to/copick/project/training_results/net_weights_FINAL.h5')
 
 # A Certain Number of Tomograms are Loaded Prior to Training (sample_size)
 # And picks from these tomograms are trained for a specified number of epochs (NsubEpoch)

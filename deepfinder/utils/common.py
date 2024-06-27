@@ -286,7 +286,7 @@ def split_datasets(datasets, train_ratio=0.8, val_ratio=0.1, test_ratio=0.1, sav
     """
 
     # Ensure the ratios add up to 1
-    assert train_ratio + val_ratio + test_ratio == 1.0, "Ratios must add up to 1."
+    # assert train_ratio + val_ratio + test_ratio == 1.0, "Ratios must add up to 1."
     
     # First, split into train and remaining (30%)
     train_datasets, remaining_datasets = train_test_split(datasets, test_size=(1 - train_ratio), random_state=42)

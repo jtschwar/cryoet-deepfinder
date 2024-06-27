@@ -9,17 +9,19 @@ tomoPixSize = 10
 tomo_path = 'Reza_Tomograms'
 
 # List for How Large the Target Sizes should be
-radius_list = [0, 4, 4, 5, 7, 5, 7]
+radius_list = [0, 1, 3]
 
-proteinsFullName = ['apo-ferritin', 'beta-amylase', 'beta-galactosidase', 'ribosome', 'thyroglobulin','virus-like-particle']
+# Path to Extra Data From
+tomo_project_path = 'MiniSlab_Tomograms'
 
-tomo_path = 'MiniSlab_Tomograms'
-proteinsFullName = ['apo-ferritin', 'beta-galactosidase', 'ribosome', 'virus-like-particle', 'junk']
-proteinsFullName = ['junk']
+# Proteins to Train DeepFinder On
+proteinsFullName = ['apo-ferritin', 'ribosome', 'junk']
+
+# List of Runs
+tomoIDs = ['TS_1','TS_2','TS_3']
 
 ##########################################################
 
-tomoIDs = ['TS_1_1','TS_1_2','TS_1_3','TS_1_5','TS_5_3','TS_1_4','TS_90_1','TS_5_2']
 for tomoInd in range(len(tomoIDs)):    
 
     tomoID = tomoIDs[tomoInd].split('/')[-1]

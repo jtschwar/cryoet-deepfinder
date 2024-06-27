@@ -6,11 +6,11 @@ import os
 
 ################### Input parameters ###################
 
-# List for How Large the Target Sizes should be
-radius_list = [0, 4, 5, 7, 5, 7, 5]
+# List for How Large the Target Sizes should be (in voxels)
+radius_list = [0, 1, 3]
 
 # CoPickPath 
-copickFolder = 'copick_pickathon_June2024/valid'
+copickFolder = 'relative/path/to/copick/project'
 
 # Voxel Size of Interest
 voxelSize = 10 

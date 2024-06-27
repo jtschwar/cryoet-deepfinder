@@ -190,13 +190,12 @@ def query_available_picks(copickRoot, tomoIDs=None):
         for proteinInd in range(len(copickRun.picks)):
             picks = copickRun.picks[proteinInd]
 
-            nPicks = len(picks.points)
+            nPicks = len(picks.points)                
             tomoIDList.append( [ tomoIDs[tomoInd] ] * nPicks )
             pickIndList.append( [i for i in range(nPicks)] )
             proteinIndList.append( [ proteinInd ] * nPicks )   
             
             proteinCoordsList.append( picks.points )
-            
             labelList.append( [copicktools.get_pickable_object_label(copickRoot, picks.pickable_object_name) ] * nPicks )
 
     labelList = np.array(list(chain.from_iterable(labelList)))

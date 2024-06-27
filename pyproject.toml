@@ -14,16 +14,16 @@ dependencies = [
     "lxml",
     "numpy",
     "copick",
-    "trimesh",    
+    "trimesh",
     "mrcfile",
-    "matplotlib",    
+    "matplotlib",
     "scikit-learn",
     "scikit-image",
 ]
 
 authors = [
   {name = "Jonathan Schwartz", email = "jonathan.schwartz@czii.org"},
-  {name = "Kyle I. S. Harrington", email = "kyle@kyleharrington.com"},
+  {name = "E. Moebel", email = "emmanuel.moebel@gmail.com"},
 ]
 
 description = "Definitions for a collaborative cryoET annotation tool."

@@ -1,7 +1,9 @@
+import deepfinder.utils.copick_tools as tools
 from deepfinder.inference import Segment
+import deepfinder.utils.objl as objl
+import deepfinder.utils.eval as eval
 import deepfinder.utils.common as cm
 import deepfinder.utils.smap as sm
-import deepfinder.utils.objl as objl
 import my_polnet_utils as utils
 import scipy.ndimage as ndimage
 from tqdm import tqdm 
@@ -9,20 +11,23 @@ import glob, os, json
 import numpy as np
 
 # Input parameters:
-path_tomo_test = 'Reza_Tomograms/Denoised/test' # tomogram to be segmented
-path_weights = 'Reza_Tomograms/Denoised/training_results/net_weights_FINAL.h5' # weights for neural network (obtained from training)
-Nclass       = 8  # including background class
+path_tomo_test = 'path/to/test/dataset' # tomogram to be segmented
+path_weights = 'path/to/training_results/net_weights_FINAL.h5' # weights for neural network (obtained from training)
+Nclass       = 3  # including background class
 patch_size   = 160 # must be multiple of 4
 
 # Output parameter:
-pathOutput = 'Reza_Tomograms/Denoised/evaluate/'
+pathOutput = 'path/to/evaluate/'
+
+proteins = {'apo': {'name': 'apo-ferritin', 'diameter': 130}, 
+            'ribo80S': {'name': 'ribosome', 'diameter': 310} }
 
 ############## (Step 1) Initialize segmentation task: ##############
-seg  = Segment(Ncl=Nclass, path_weights=path_weights, patch_size=patch_size)
 
 segMetrics = {}
-proteins = ['apo', 'betaAmylase', 'betaGal', 'ribo80S', 'Thg', 'VLP']
-particleDiameters = [130, 160, 180, 310, 290, 285]
+seg  = Segment(Ncl=Nclass, path_weights=path_weights, patch_size=patch_size)
+tags = list(proteins)
+
 evalTomos = glob.glob( os.path.join(path_tomo_test, 'TS_*_objl.xml') )
 os.makedirs(pathOutput, exist_ok=True)
 for coordFile in tqdm(evalTomos): 
@@ -61,16 +66,16 @@ for coordFile in tqdm(evalTomos):
         groundTruthCoords = np.array([(entry['x'], entry['y'], entry['z']) for entry in filteredXML])
         
         # Estimate Distance Threshold Based on 1/3 of Particle Diameter
-        threshold = np.ceil( particleDiameters[label - 2] / (10 * 3) )
+        threshold = np.ceil(  proteins[tags[label - 2]]['diameter'] / (10 * 3) )
 
         # Remove Double Counted Coordinates
-        deepFinderCoords = utils.remove_repeated_picks(deepFinderCoords, threshold)
+        deepFinderCoords = eval.remove_repeated_picks(deepFinderCoords, threshold)
 
         # Write the Starfile for Visualization
-        utils.write_relion_output(proteins[label-2], None, np.hstack( (deepFinderCoords,  np.zeros((deepFinderCoords.shape[0], 3)))), pathOutput, pixelSize=1) 
+        tools.write_relion_output(proteins[label-2], None, np.hstack( (deepFinderCoords,  np.zeros((deepFinderCoords.shape[0], 3)))), pathOutput, pixelSize=1) 
 
         # Compute Metrics
-        stats = utils.compute_metrics(groundTruthCoords, deepFinderCoords, threshold)
+        stats = eval.compute_metrics(groundTruthCoords, deepFinderCoords, threshold)
 
         # Ensure the key tomoID exists in segMetrics
         segMetrics.setdefault(tomoID, {})

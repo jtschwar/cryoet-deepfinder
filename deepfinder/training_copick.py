@@ -6,7 +6,6 @@
 # =============================================================================================
 
 import numpy as np
-import os, time, h5py
 
 import tensorflow as tf
 import tensorflow.keras.backend as K
@@ -177,8 +176,8 @@ class Train(core.DeepFinder):
             class_weight=self.class_weights,
             validation_data=initial_valid_dataset,
             validation_steps=self.steps_per_valid,
-            callbacks=[tensorboard_callback, clear_memory_callback, save_weights_callback,
-                       plotting_callback, swap_callback, learning_rate_callback],
+            callbacks=[tensorboard_callback, save_weights_callback, plotting_callback, 
+                       swap_callback, learning_rate_callback],
             verbose=1
         )
 
