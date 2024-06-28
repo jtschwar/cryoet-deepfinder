@@ -74,6 +74,8 @@ select = [
     "SIM",     # simplify
 ]
 ignore = [
+    "E741",   # ambiguous variable name
+    "N803",   # argument name should be lowercase
     "G004",   # logging format
     "W293",   # blank line contains whitespace
     "B008",   # Do not perform calls in argument defaults

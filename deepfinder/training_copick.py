@@ -5,23 +5,18 @@
 # License: GPL v3.0. See <https://www.gnu.org/licenses/>
 # =============================================================================================
 
-import numpy as np
-import os, time, h5py
-
-import tensorflow as tf
-import tensorflow.keras.backend as K
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.utils import to_categorical
 
 import copick
-from .utils import common as cm
-from .utils import core
-from . import callbacks
-from . import models
-from . import losses
+import numpy as np
+import tensorflow as tf
 
 # Enable mixed precision
 from tensorflow.keras import mixed_precision
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.utils import to_categorical
+
+from . import callbacks, losses, models
+from .utils import core
 
 policy = mixed_precision.Policy("mixed_float16")
 mixed_precision.set_global_policy(policy)
@@ -131,7 +126,7 @@ class Train(core.DeepFinder):
 
         # TensorBoard writer
         log_dir = self.path_out + "tensorboard_logs/"
-        writer = tf.summary.create_file_writer(log_dir)
+        tf.summary.create_file_writer(log_dir)
         tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, profile_batch="500,520")
 
         # gpus = tf.config.list_logical_devices('GPU')
@@ -160,7 +155,7 @@ class Train(core.DeepFinder):
         self.batch_target = np.zeros((self.batch_size, self.dim_in, self.dim_in, self.dim_in, self.Ncl))
 
         # Callbacks for Save weights and Clear Memory
-        clear_memory_callback = callbacks.ClearMemoryCallback()
+        callbacks.ClearMemoryCallback()
         save_weights_callback = callbacks.SaveWeightsCallback(self.path_out)
         learning_rate_callback = tf.keras.callbacks.ReduceLROnPlateau(
             monitor="val_loss",
@@ -193,7 +188,7 @@ class Train(core.DeepFinder):
             validation_steps=self.steps_per_valid,
             callbacks=[
                 tensorboard_callback,
-                clear_memory_callback,
+                # clear_memory_callback,
                 save_weights_callback,
                 plotting_callback,
                 swap_callback,
@@ -215,12 +210,17 @@ class Train(core.DeepFinder):
         flag_batch_bootstrap=True,
         tomoIDs=None,
     ):
-
         copickRoot = copick.from_file(copick_path)
         organizedPicksDict = core.query_available_picks(copickRoot, tomoIDs)
         dataset = tf.data.Dataset.from_generator(
             lambda: self.copick_data_generator(
-                input_dataset, input_target, batch_size, dim_in, Ncl, flag_batch_bootstrap, organizedPicksDict
+                input_dataset,
+                input_target,
+                batch_size,
+                dim_in,
+                Ncl,
+                flag_batch_bootstrap,
+                organizedPicksDict,
             ),
             output_signature=(
                 tf.TensorSpec(shape=(batch_size, dim_in, dim_in, dim_in, 1), dtype=tf.float32),
@@ -231,35 +231,46 @@ class Train(core.DeepFinder):
         return dataset
 
     def copick_data_generator(
-        self, input_dataset, input_target, batch_size, dim_in, Ncl, flag_batch_bootstrap, organizedPicksDict
+        self,
+        input_dataset,
+        input_target,
+        batch_size,
+        dim_in,
+        Ncl,
+        flag_batch_bootstrap,
+        organizedPicksDict,
     ):
-
         p_in = int(np.floor(dim_in / 2))
 
         tomodim = input_dataset[organizedPicksDict["tomoIDlist"][0]].shape
         while True:
-            if flag_batch_bootstrap:
-                pool = core.get_copick_boostrap_idx(organizedPicksDict, batch_size)
-            else:
-                pool = range(0, len(objlist))
+            pool = core.get_copick_boostrap_idx(organizedPicksDict, batch_size) if flag_batch_bootstrap else None
+            # pool = range(0, len(objlist))
 
             idx_list = []
             for i in range(batch_size):
-
                 randomBSidx = np.random.choice(pool["bs_idx"])
                 idx_list.append(randomBSidx)
 
                 index = np.where(pool["bs_idx"] == randomBSidx)[0][0]
 
                 x, y, z = core.get_copick_patch_position(
-                    tomodim, p_in, self.Lrnd, self.voxelSize, pool["protein_coords"][index]
+                    tomodim,
+                    p_in,
+                    self.Lrnd,
+                    self.voxelSize,
+                    pool["protein_coords"][index],
                 )
 
                 patch_data = input_dataset[pool["tomoID_idx"][index]][
-                    z - p_in : z + p_in, y - p_in : y + p_in, x - p_in : x + p_in
+                    z - p_in : z + p_in,
+                    y - p_in : y + p_in,
+                    x - p_in : x + p_in,
                 ]
                 patch_target = input_target[pool["tomoID_idx"][index]][
-                    z - p_in : z + p_in, y - p_in : y + p_in, x - p_in : x + p_in
+                    z - p_in : z + p_in,
+                    y - p_in : y + p_in,
+                    x - p_in : x + p_in,
                 ]
 
                 patch_target = to_categorical(patch_target, Ncl)
