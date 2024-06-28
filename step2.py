@@ -1,12 +1,14 @@
+import os
+
+import click
 import copick
 
-from deepfinder.training_copick import Train
 import deepfinder.utils.common as cm
-import os, glob
-import click
+from deepfinder.training_copick import Train
 
 
 @click.group()
+@click.pass_context
 def cli(ctx):
     pass
 
@@ -196,7 +198,6 @@ def train(
     valid_tomo_ids: str = None,
     train_tomo_ids: str = None,
 ):
-
     # Parse input parameters
     if valid_tomo_ids is not None:
         valid_tomo_ids = valid_tomo_ids.split(",")
