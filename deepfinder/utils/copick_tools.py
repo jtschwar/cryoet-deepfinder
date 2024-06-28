@@ -3,10 +3,11 @@ from typing import List, Dict, Any
 import json, zarr, starfile, os
 import ome_zarr.writer
 import numpy as np
+import copick
 
 def get_copick_project_tomoIDs(copickRoot):
 
-    copickRoot = CopickRootFSSpec.from_file(copickRoot)
+    copickRoot = copick.from_file(copickRoot)
     tomoIDs = [run.name for run in copickRoot.runs]
 
     return tomoIDs

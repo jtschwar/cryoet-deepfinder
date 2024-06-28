@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('agg') # necessary else: AttributeError: 'NoneType' object has no attribute 'is_interactive'
 
-from copick.impl.filesystem import CopickRootFSSpec
+import copick
 from . import copick_tools as copicktools
 from itertools import chain
 from . import common as cm
@@ -138,7 +138,7 @@ def load_copick_datasets(copickPath, train_instance, tomoIDs = None):
     
     data_list   = {}; target_list = {}
 
-    copickRoot = CopickRootFSSpec.from_file(copickPath)
+    copickRoot = copick.from_file(copickPath)
     if tomoIDs is None:  tomoIDs = [run.name for run in copickRoot.runs]
 
     print(f'Loading Targets and Tomograms for the Following Runs: {list(tomoIDs)}') 

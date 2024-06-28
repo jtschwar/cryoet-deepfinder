@@ -15,6 +15,7 @@ warnings.simplefilter('ignore') # to mute some warnings produced when opening th
 
 from skimage.measure import block_reduce
 from scipy.spatial.transform import Rotation as R
+from scipy.ndimage import map_coordinates
 from sklearn.model_selection import train_test_split
 
 import matplotlib

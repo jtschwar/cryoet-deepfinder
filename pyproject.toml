@@ -14,7 +14,7 @@ dependencies = [
     "tensorflow>=2.11.1",
     "lxml>=4.9.3",
     "numpy<2",
-    "copick @ git+https://github.com/uermel/copick.git@82234ce",
+    "copick @ git+https://github.com/uermel/copick.git@066c599",
     "trimesh",    
     "mrcfile>=1.4.3",
     "matplotlib>=3.8.1",
@@ -42,3 +42,50 @@ packages = ["deepfinder"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.black]
+line-length = 120
+target_version = ['py311']
+
+[tool.ruff]
+select = [
+    "E", "W",  # pycodestyle
+    "F",       # pyflakes
+    "B",       # bugbear
+    "I",       # isort
+    "N",       # pep8-naming
+    "ASYNC",   # async
+    "COM",     # commas
+    "C4",      # comprehensions
+    "DTZ",     # datetimez
+    "ISC",     # implicit-str-concat
+    "G",       # logging-format
+    "T20",     # print
+    "SIM",     # simplify
+]
+ignore = [
+    "G004",   # logging format
+    "W293",   # blank line contains whitespace
+    "B008",   # Do not perform calls in argument defaults
+    "B905",   # `zip()` without an explicit `strict=` parameter
+    "N802",   # Function name should be lowercase
+    "N805",   # First argument of a method should be named `self`
+    "N806",   # Variable in function should be lowercase
+    "N999",   # Invalid module name
+    "E501",   # line too long
+    "C408",   # rewrite empty built-ins as literals
+    "T201",   # print statements.
+    "DTZ007", # Datetime objects without timezones.
+    "DTZ005", # More datetimes without timezones.
+]
+line-length = 120
+target-version = "py311"
+exclude = [
+    "mkdocs.yml",
+]
+
+[tool.ruff.isort]
+known-first-party =["common"]
+
+[tool.ruff.flake8-quotes]
+docstring-quotes = "double"
