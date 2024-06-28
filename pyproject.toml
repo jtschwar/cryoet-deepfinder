@@ -11,7 +11,7 @@ classifiers = [
 
 version = "0.4.0"
 dependencies = [
-    "tensorflow>=2.11.1",
+    "tensorflow[and-cuda]",
     "lxml>=4.9.3",
     "numpy<2",
     "copick @ git+https://github.com/uermel/copick.git@066c599",
