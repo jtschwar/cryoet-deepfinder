@@ -5,8 +5,8 @@ import os, glob
 #############################################################################
 
 # Load dataset:
-path_train = f'relative/path/to/copick/project/training'
-path_valid = f'relative/path/to/copick/project/validation'
+path_train = f'relative/path/to/copick/project/training_config.json'
+path_valid = f'relative/path/to/copick/project/validation_config.json'
 
 # Copick Input Parameters
 trainVoxelSize        = 10
@@ -67,7 +67,7 @@ trainer.validTomoIDs     = validationList
 trainer.trainTomoIDs     = trainList
 
 # Train
-trainer.launch(path_train, path_valid)
+trainer.launch(path_train)
 
 # Option 2: 
     # The Data is Already Split into two Copick Projects
