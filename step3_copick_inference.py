@@ -1,33 +1,35 @@
 from copick.impl.filesystem import CopickRootFSSpec
 import deepfinder.utils.copick_tools as tools
 from deepfinder.inference import Segment
-import deepfinder.utils.common as cm
-import deepfinder.utils.objl as objl
+import deepfinder.utils.eval as eval
 import deepfinder.utils.smap as sm
-import my_polnet_utils as utils
 import scipy.ndimage as ndimage
 from tqdm import tqdm 
-import glob, os, json
+import os, json
 import numpy as np
+
+#################################################################
 
 voxelSize = 10
 tomoAlg   = 'denoised'
 
 # Input parameters:
-path_tomo_test = 'copick_pickathon_June2024/test' # tomogram to be segmented
-path_weights = f'copick_pickathon_June2024/{tomoAlg}_training_results/net_weights_epoch60.h5' # weights for neural network (obtained from training)
-Nclass       = 8  # including background class
+path_tomo_test = 'relative/path/to/copick/project/test' # tomogram to be segmented
+path_weights = f'relative/path/to/copick/project/{tomoAlg}_training_results/net_weights_FINAL.h5' # weights for neural network (obtained from training)
+Nclass       = 3  # including background class 
 patch_size   = 160 # must be multiple of 4
 
 # Output parameter:
-pathOutput = f'copick_pickathon_June2024/{tomoAlg}_training_results/evaluate/'
+pathOutput = f'relative/path/to/{tomoAlg}_training_results/evaluate/'
 
 proteins = {'apo': {'name': 'apo-ferritin', 'diameter': 130}, 
-            'betaGal': {'name': 'beta-galactosidase', 'diameter': 180}, 
-            'ribo80S': {'name': 'ribosome', 'diameter': 310},
-            'Thg': {'name': 'thyroglobulin', 'diameter': 290},
-            'VLP': {'name': 'virus-like-particle', 'diameter': 285},
-            'junk': {'name': 'junk', 'diameter': 200}  }
+            'ribo80S': {'name': 'ribosome', 'diameter': 310} }
+
+# Copick UserID
+userID = 'predict-resunet-deepfinder'
+
+# LabelMap Zarr Name
+labelName = 'label-map'
 
 ############## (Step 1) Initialize segmentation task: ##############
 
@@ -57,10 +59,7 @@ for tomoInd in range(len(evalTomos)):
 
     # Get labelmap from scoremaps:
     labelmap  = sm.to_labelmap(scoremaps)
-
-    # Save labelmaps (Optional):
-    cm.write_array(scoremaps , pathOutput + f'{tomoID}_scoremap.mrc')    
-    cm.write_array(labelmap , pathOutput + f'{tomoID}_labelmap.mrc')
+    tools.write_ome_zarr_segmentation(copickRun, labelmap, voxelSize, labelName, userID)    
 
     # Start from Label 2 because label == 0 is background and label == 1 is membrane
     for label in range(2,Nclass):
@@ -85,14 +84,14 @@ for tomoInd in range(len(evalTomos)):
         threshold = np.ceil( proteins[tags[label - 2]]['diameter'] / (voxelSize * 3) )
 
         # Remove Double Counted Coordinates
-        deepFinderCoords = utils.remove_repeated_picks(deepFinderCoords, threshold)
+        deepFinderCoords = eval.remove_repeated_picks(deepFinderCoords, threshold)
 
         # Write the Starfile for Visualization
-        utils.write_relion_output(tags[label-2], None, np.hstack( (deepFinderCoords,  np.zeros((deepFinderCoords.shape[0], 3)))), pathOutput, pixelSize=1) 
+        tools.write_relion_output(tags[label-2], None, np.hstack( (deepFinderCoords,  np.zeros((deepFinderCoords.shape[0], 3)))), pathOutput, pixelSize=1) 
 
         # Compute Metrics
         try: 
-            stats = utils.compute_metrics(groundTruthCoords, deepFinderCoords, proteins[tags[label - 2]]['diameter']/ voxelSize)
+            stats = eval.compute_metrics(groundTruthCoords, deepFinderCoords, proteins[tags[label - 2]]['diameter']/ voxelSize)
 
             # Ensure the key tomoID exists in segMetrics
             segMetrics.setdefault(tomoID, {})

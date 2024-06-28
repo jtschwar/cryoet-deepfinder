@@ -9,6 +9,10 @@ from tensorflow.keras.layers import Input, concatenate
 from tensorflow.keras.layers import Conv3D, MaxPooling3D, UpSampling3D
 from tensorflow.keras.models import Model
 
+from tensorflow.keras.layers import Input, concatenate
+from tensorflow.keras.layers import Conv3D, MaxPooling3D, UpSampling3D
+from tensorflow.keras.models import Model
+
 def my_model(dim_in, Ncl):
     
     input = Input(shape=(dim_in,dim_in,dim_in,1))

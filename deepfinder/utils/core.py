@@ -7,18 +7,22 @@
 
 # This file contains classes/functions that are judged not necessary for the user.
 
-import matplotlib.pyplot as plt
 import matplotlib
+import matplotlib.pyplot as plt
 
 matplotlib.use("agg")  # necessary else: AttributeError: 'NoneType' object has no attribute 'is_interactive'
 
-import copick
-from . import copick_tools as copicktools
+import os
+import sys
 from itertools import chain
-from . import common as cm
-from tqdm import tqdm
-import h5py, os, sys
+
+import copick
+import h5py
 import numpy as np
+from tqdm import tqdm
+
+from . import common as cm
+from . import copick_tools as copicktools
 
 
 class DeepFinder:
@@ -38,7 +42,7 @@ class DeepFinder:
     def is_3D_nparray(self, v, varname):
         if type(v) != np.ndarray:
             self.display(
-                'DeepFinder message: variable "' + varname + '" is ' + str(type(v)) + ". Expected is numpy array."
+                'DeepFinder message: variable "' + varname + '" is ' + str(type(v)) + ". Expected is numpy array.",
             )
             sys.exit()
         if len(v.shape) != 3:
@@ -47,7 +51,7 @@ class DeepFinder:
                 + varname
                 + '" is a '
                 + str(len(v.shape))
-                + "D array. Expected is a 3D array."
+                + "D array. Expected is a 3D array.",
             )
             sys.exit()
 
@@ -88,7 +92,11 @@ class DeepFinder:
     def are_lists_same_length(self, v, varname):
         if len(v[0]) != len(v[1]):
             self.display(
-                'DeepFinder message: the lists "' + varname[0] + '" and "' + varname[1] + '" need to be of same length.'
+                'DeepFinder message: the lists "'
+                + varname[0]
+                + '" and "'
+                + varname[1]
+                + '" need to be of same length.',
             )
             sys.exit()
 
@@ -108,7 +116,7 @@ class DeepFinder:
                 + str(v[1])
                 + ","
                 + str(v[1])
-                + ")."
+                + ").",
             )
             sys.exit()
 
@@ -131,9 +139,8 @@ class observer_gui:
 # Found here: https://stackoverflow.com/questions/18425225/getting-the-name-of-a-variable-as-a-string
 def retrieve_var_name(x, Vars=vars()):
     for k in Vars:
-        if type(x) == type(Vars[k]):
-            if x is Vars[k]:
-                return k
+        if type(x) == type(Vars[k]) and x is Vars[k]:
+            return k
     return None
 
 
@@ -166,7 +173,6 @@ def load_dataset(path_data, path_target, dset_name="dataset"):
 
 
 def load_copick_datasets(copickPath, train_instance, tomoIDs=None):
-
     data_list = {}
     target_list = {}
 
@@ -177,10 +183,15 @@ def load_copick_datasets(copickPath, train_instance, tomoIDs=None):
     print(f"Loading Targets and Tomograms for the Following Runs: {list(tomoIDs)}")
     for idx in tqdm(range(len(tomoIDs))):
         target_list[tomoIDs[idx]] = copicktools.get_copick_segmentation(
-            copickRoot.get_run(tomoIDs[idx]), train_instance.labelName, train_instance.labelUserID
+            copickRoot.get_run(tomoIDs[idx]),
+            train_instance.labelName,
+            train_instance.labelUserID,
         )[:]
         data_list[tomoIDs[idx]] = copicktools.read_copick_tomogram_group(
-            copickRoot, train_instance.voxelSize, train_instance.tomoAlg, tomoIDs[idx]
+            copickRoot,
+            train_instance.voxelSize,
+            train_instance.tomoAlg,
+            tomoIDs[idx],
         )[0][:]
 
         if data_list[tomoIDs[idx]].shape != target_list[tomoIDs[idx]].shape:
@@ -218,7 +229,6 @@ def get_bootstrap_idx(objlist, Nbs):
 
 
 def query_available_picks(copickRoot, tomoIDs=None):
-
     # Load TomoIDs - Default is Read All TomoIDs from Path
     if tomoIDs is None:
         tomoIDs = [run.name for run in copickRoot.runs]
@@ -235,11 +245,10 @@ def query_available_picks(copickRoot, tomoIDs=None):
 
             nPicks = len(picks.points)
             tomoIDList.append([tomoIDs[tomoInd]] * nPicks)
-            pickIndList.append([i for i in range(nPicks)])
+            pickIndList.append(list(range(nPicks)))
             proteinIndList.append([proteinInd] * nPicks)
 
             proteinCoordsList.append(picks.points)
-
             labelList.append([copicktools.get_pickable_object_label(copickRoot, picks.pickable_object_name)] * nPicks)
 
     labelList = np.array(list(chain.from_iterable(labelList)))
@@ -258,7 +267,6 @@ def query_available_picks(copickRoot, tomoIDs=None):
 
 
 def get_copick_boostrap_idx(organizedPicksDict, Nbs):
-
     # Bootstrap data so that we have equal frequencies (1/Nbs) for all classes:
     # ->from label_list, sample Nbs objects from each class
     bs_idx = []
@@ -326,7 +334,6 @@ def get_patch_position(tomodim, p_in, obj, Lrnd):
 
 
 def get_copick_patch_position(tomodim, p_in, Lrnd, voxelSize, copicks):
-
     # sample at coordinates specified in obj=objlist[idx]
     x = int(copicks.location.x / voxelSize)
     y = int(copicks.location.y / voxelSize)
@@ -432,7 +439,7 @@ def plot_history(history, filename):
     for lbl in range(0, Ncl):
         legend_names.append("class " + str(lbl))
 
-    epochs = len(history["val_loss"])
+    len(history["val_loss"])
 
     hist_loss_train = history["loss"]
     hist_acc_train = history["acc"]

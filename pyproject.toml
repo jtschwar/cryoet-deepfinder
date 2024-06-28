@@ -74,6 +74,11 @@ select = [
     "SIM",     # simplify
 ]
 ignore = [
+    "N817",   # variable in function should be lowercase
+    "E402",   # module level import not at top of file
+    "N801",   # variable in function should be lowercase
+    "E721",   # do not compare types, use `isinstance()`
+    "N816",   # variable in function should be lowercase
     "E741",   # ambiguous variable name
     "N803",   # argument name should be lowercase
     "G004",   # logging format

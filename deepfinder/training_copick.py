@@ -5,7 +5,6 @@
 # License: GPL v3.0. See <https://www.gnu.org/licenses/>
 # =============================================================================================
 
-
 import copick
 import numpy as np
 import tensorflow as tf
@@ -188,7 +187,6 @@ class Train(core.DeepFinder):
             validation_steps=self.steps_per_valid,
             callbacks=[
                 tensorboard_callback,
-                # clear_memory_callback,
                 save_weights_callback,
                 plotting_callback,
                 swap_callback,
