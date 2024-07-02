@@ -69,7 +69,9 @@ def create(
         copickRun = copickRoot.get_run(tomoID)
 
         # applicable picks
-        query = copickRun.get_picks(object_name=target_names, user_id=user_id, session_id=session_id)
+        query = []
+        for target_name in target_names:
+            query += copickRun.get_picks(object_name=target_name, user_id=user_id, session_id=session_id)
 
         # Read Particle Coordinates and Write as Segmentation
         objl_coords = []
