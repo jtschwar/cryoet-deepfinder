@@ -48,7 +48,7 @@ def create(
 
     # List for How Large the Target Sizes should be
     targets = {copickRoot.get_object(elem[0]).label: elem[1] for elem in target}
-
+    target_names = [elem[0] for elem in target]
     # Radius list
     radius_list = np.ndarray((max(targets.keys()),), dtype=np.uint8)
     for key, value in targets.items():
@@ -69,7 +69,7 @@ def create(
         copickRun = copickRoot.get_run(tomoID)
 
         # applicable picks
-        query = copickRun.get_picks(object_name=list(targets.keys()), user_id=user_id, session_id=session_id)
+        query = copickRun.get_picks(object_name=target_names, user_id=user_id, session_id=session_id)
 
         # Read Particle Coordinates and Write as Segmentation
         objl_coords = []
