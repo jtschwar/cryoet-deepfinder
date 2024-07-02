@@ -50,7 +50,7 @@ def create(
     targets = {copickRoot.get_object(elem[0]).label: elem[1] for elem in target}
     target_names = [elem[0] for elem in target]
     # Radius list
-    radius_list = np.ndarray((max(targets.keys()),), dtype=np.uint8)
+    radius_list = np.zeros((max(targets.keys()),), dtype=np.uint8)
     for key, value in targets.items():
         radius_list[key - 1] = value
 
