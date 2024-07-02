@@ -52,7 +52,7 @@ def create(
     # Radius list
     radius_list = np.ndarray((max(targets.keys()),), dtype=np.uint8)
     for key, value in targets.items():
-        radius_list[key] = value
+        radius_list[key - 1] = value
 
     # Load tomo_ids
     tomo_ids = tomo_ids.split(",")
