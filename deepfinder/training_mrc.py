@@ -6,22 +6,15 @@
 # =============================================================================================
 
 import numpy as np
-import os, time, h5py
 
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
-import tensorflow.keras.backend as K
 
-import matplotlib.pyplot as plt
-from sklearn.metrics import precision_recall_fscore_support
-from sklearn.utils.class_weight import compute_class_weight
-
-from .utils import common as cm
-from .utils import core
-from . import callbacks
-from . import models
-from . import losses
+from deepfinder.utils import core
+from deepfinder import callbacks
+from deepfinder import models
+from deepfinder import losses
 
 # Enable mixed precision
 from tensorflow.keras import mixed_precision
@@ -73,6 +66,9 @@ class Train(core.DeepFinder):
         self.sample_weights = None  # np array same lenght as objl_train
 
         self.check_attributes()
+
+    def load_model(self, model_name, trained_weights_path = None):
+        self.net = models.load_model(self.dim_in, self.Ncl, model_name, trained_weights_path)        
 
     def check_attributes(self):
         self.is_positive_int(self.Ncl, 'Ncl')

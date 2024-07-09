@@ -1,16 +1,10 @@
 from copick.impl.filesystem import CopickRootFSSpec
 import deepfinder.utils.copick_tools as tools
 from deepfinder.inference import Segment
-import deepfinder.utils.objl as objl
 import deepfinder.utils.smap as sm
-import my_polnet_utils as utils
-import scipy.ndimage as ndimage
 import pycuda.driver as cuda
-import glob, os, json, zarr
 from mpi4py import MPI
-from tqdm import tqdm 
-import numpy as np
-import argparse
+import os
 
 # Initialize MPI (Get Rank and nProc)
 comm = MPI.COMM_WORLD; rank = comm.Get_rank(); nProcess = comm.Get_size()
@@ -26,7 +20,7 @@ tomoAlg   = 'denoised'
 
 # Input parameters:
 path_tomo_test = 'data_split_study_copick_June2024/' # tomogram to be segmented
-path_weights = f'data_splitting_train_results/datasplit_{args.split}/net_weights_epoch50.h5' # weights for neural network (obtained from training)
+path_weights = f'train_results/net_weights_epoch50.h5' # weights for neural network (obtained from training)
 Nclass       = 8  # including background class
 patch_size   = 160 # must be multiple of 4
 

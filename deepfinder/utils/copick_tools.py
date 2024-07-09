@@ -82,7 +82,7 @@ def get_target_empty_tomogram(copickRoot, voxelSize=10, tomoAlgorithm='denoised'
     
     return np.zeros(get_copick_tomogram_shape(copickRoot, voxelSize, tomoAlgorithm), dtype=np.int8)
 
-def get_copick_segmentation(copickRun, segmentationName = "test-segmentation7" , userID = 'deepfinder'):
+def get_copick_segmentation(copickRun, segmentationName = "test-segmentation7" , userID = 'deepfinder', sessionID = '0'):
     """ Return a Specified Copick Segmentation.
     Args:
         copickRun: Target Copick Run to Extract Tomogram.
@@ -94,7 +94,7 @@ def get_copick_segmentation(copickRun, segmentationName = "test-segmentation7" ,
     """
 
     # Get the Segmentation from the Following Copick Run
-    seg = copickRun.get_segmentations(name=segmentationName, user_id=userID)[0]
+    seg = copickRun.get_segmentations(name=segmentationName, user_id=userID, session_id = sessionID)[0]
 
     # Return the Corresponding Segmentation Volume 
     store = seg.zarr()

@@ -1,7 +1,7 @@
 from sklearn.metrics import precision_recall_fscore_support
-from .utils import copick_tools as copicktools
+from deepfinder.utils import copick_tools as copicktools
+from deepfinder.utils import core
 import tensorflow as tf
-from .utils import core
 import numpy as np
 import gc
 

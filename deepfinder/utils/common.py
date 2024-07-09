@@ -5,23 +5,19 @@
 # License: GPL v3.0. See <https://www.gnu.org/licenses/>
 # =============================================================================================
 
-import os
-import numpy as np
-import h5py
-
-import mrcfile
-import warnings
-warnings.simplefilter('ignore') # to mute some warnings produced when opening the tomos with mrcfile
-
-from skimage.measure import block_reduce
-from scipy.spatial.transform import Rotation as R
 from sklearn.model_selection import train_test_split
+from scipy.spatial.transform import Rotation as R
+from scipy.ndimage import map_coordinates
+from skimage.measure import block_reduce
 
-import matplotlib
-matplotlib.use('agg') # necessary else: AttributeError: 'NoneType' object has no attribute 'is_interactive'
-import matplotlib.pyplot as plt
-
+import mrcfile, warnings, os, h5py
 from PIL import Image # for reading tif
+import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib
+
+warnings.simplefilter('ignore') # to mute some warnings produced when opening the tomos with mrcfile
+matplotlib.use('agg') # necessary else: AttributeError: 'NoneType' object has no attribute 'is_interactive'
 
 # Writes an image file containing ortho-slices of the input volume. Generates same visualization as matlab function
 # 'tom_volxyz' from TOM toolbox.

@@ -13,11 +13,11 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
 
 from copick.impl.filesystem import CopickRootFSSpec
-from .utils import common as cm
-from .utils import core
-from . import callbacks
-from . import models
-from . import losses
+from deepfinder.utils import common as cm
+from deepfinder.utils import core
+from deepfinder import callbacks
+from deepfinder import models
+from deepfinder import losses
 
 # Enable mixed precision
 from tensorflow.keras import mixed_precision
@@ -64,6 +64,9 @@ class Train(core.DeepFinder):
         self.sample_size        = 15 
 
         self.check_attributes()
+
+    def load_model(self, model_name, trained_weights_path = None):
+        self.net = models.load_model(self.dim_in, self.Ncl, model_name, trained_weights_path)
 
     def check_attributes(self):
         self.is_positive_int(self.Ncl, 'Ncl')
