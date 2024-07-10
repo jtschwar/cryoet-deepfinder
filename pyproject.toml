@@ -37,6 +37,8 @@ keywords = ["cryoet", "cryo-et", "tomography", "annotation", "segmentation", "co
 [project.scripts]
 step1 = "step1:cli"
 step2 = "step2:cli"
+step3 = "step3:cli"
+step4 = "step4:cli"
 
 [project.optional-dependencies]
 dev = [
@@ -46,6 +48,7 @@ dev = [
     "ruff",
     "notebook",
 ]
+mpi = ["mpi4py"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["deepfinder"]
