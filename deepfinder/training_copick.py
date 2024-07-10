@@ -15,6 +15,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
 
 from deepfinder import callbacks, losses, models
+from deepfinder.models.res_unet import my_res_unet_model
 from deepfinder.utils import core
 
 policy = mixed_precision.Policy("mixed_float16")
@@ -30,7 +31,7 @@ class Train(core.DeepFinder):
         # Network parameters:
         self.Ncl = Ncl  # Number of Classes
         self.dim_in = dim_in  # /!\ has to a multiple of 4 (because of 2 pooling layers), so that dim_in=dim_out
-        self.net = models.res_unet.my_res_unet_model(self.dim_in, self.Ncl)
+        self.net = my_res_unet_model(self.dim_in, self.Ncl)
 
         self.label_list = []
         for l in range(self.Ncl):
