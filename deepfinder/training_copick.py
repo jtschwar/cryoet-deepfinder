@@ -30,7 +30,7 @@ class Train(core.DeepFinder):
         # Network parameters:
         self.Ncl = Ncl  # Number of Classes
         self.dim_in = dim_in  # /!\ has to a multiple of 4 (because of 2 pooling layers), so that dim_in=dim_out
-        self.net = models.my_model(self.dim_in, self.Ncl)
+        self.net = models.res_unet.my_res_unet_model(self.dim_in, self.Ncl)
 
         self.label_list = []
         for l in range(self.Ncl):
