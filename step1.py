@@ -29,6 +29,7 @@ def cli(ctx):
     type=(str, str, str),
     required=False,
     help="Tuples of object name, user id and session id for segmentation.",
+    multiple=True,
 )
 @click.option("--tomo-ids", type=str, required=True, help="Comma separated list of Tomogram IDs.")
 @click.option("--user-id", type=str, default=None, show_default=True, help="User ID filter for input.")
@@ -55,8 +56,8 @@ def create(
     copickRoot = copick.from_file(config)
 
     # List for How Large the Target Sizes should be
-    {copickRoot.get_object(elem[0]).label: elem[1] for elem in target}
-    target_names = [elem[0] for elem in target]
+    # {copickRoot.get_object(elem[0]).label: elem[1] for elem in target}
+    # target_names = [elem[0] for elem in target]
 
     train_targets = {}
     for t in target:
@@ -111,7 +112,7 @@ def create(
         for target_name in target_names:
             if not train_targets[target_name]["is_particle_target"]:
                 query_seg += copickRun.get_segmentations(
-                    object_name=target_name,
+                    name=target_name,
                     user_id=train_targets[target_name]["user_id"],
                     session_id=train_targets[target_name]["session_id"],
                     voxel_size=voxel_size,
@@ -120,7 +121,7 @@ def create(
 
         # Add Segmentations to Target
         for seg in query_seg:
-            classLabel = copickRoot.get_object(seg.segmentable_object_name).label
+            classLabel = copickRoot.get_object(seg.name).label
             segvol = zarr.open(seg.zarr())["0"]
 
             target_vol[:] = np.array(segvol) * classLabel
