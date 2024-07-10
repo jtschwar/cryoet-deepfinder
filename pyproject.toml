@@ -14,7 +14,7 @@ dependencies = [
     "tensorflow[and-cuda]",
     "lxml>=4.9.3",
     "numpy<2",
-    "copick @ git+https://github.com/uermel/copick.git@066c599",
+    "copick @ git+https://github.com/uermel/copick.git@c201b1e",
     "trimesh",
     "mrcfile>=1.4.3",
     "matplotlib>=3.8.1",
