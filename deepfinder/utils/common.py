@@ -9,20 +9,18 @@ import os
 import warnings
 
 import h5py
+import matplotlib
+import matplotlib.pyplot as plt
 import mrcfile
 import numpy as np
-
-warnings.simplefilter("ignore")  # to mute some warnings produced when opening the tomos with mrcfile
-
-import matplotlib
+from PIL import Image  # for reading tif
 from scipy.ndimage import map_coordinates
 from scipy.spatial.transform import Rotation as R
 from skimage.measure import block_reduce
 from sklearn.model_selection import train_test_split
 
+warnings.simplefilter("ignore")  # to mute some warnings produced when opening the tomos with mrcfile
 matplotlib.use("agg")  # necessary else: AttributeError: 'NoneType' object has no attribute 'is_interactive'
-import matplotlib.pyplot as plt
-from PIL import Image  # for reading tif
 
 
 # Writes an image file containing ortho-slices of the input volume. Generates same visualization as matlab function

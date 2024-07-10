@@ -98,7 +98,8 @@ for tomoInd in range(len(evalTomos)):
 
             # Store the Stats in Dictionary 
             segMetrics[tomoID][tags[label-2]] = stats     
-        except:
+        except Exception as e:
+            print(f"Error processing label {proteins[tags[label-2]]['name']} in tomo {tomoID}: {e}")
             pass
 
 # Save Segmentation Metrics as a JSON File

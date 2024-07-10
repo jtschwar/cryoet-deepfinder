@@ -16,18 +16,16 @@ import os
 import sys
 from itertools import chain
 
-import copick
 import h5py
 import numpy as np
-from tqdm import tqdm
 
-from . import common as cm
-from . import copick_tools as copicktools
+from deepfinder.utils import common as cm
+from deepfinder.utils import copick_tools as copicktools
 
 
 class DeepFinder:
     def __init__(self):
-        self.obs_list = [observer_print]
+        self.obs_list = []  # [observer_print]
 
     # Useful for sending prints to GUI
     def set_observer(self, obs):
@@ -121,29 +119,6 @@ class DeepFinder:
             sys.exit()
 
 
-# Following observer classes are needed to send prints to GUI:
-class observer_print:
-    def display(message):
-        print(message)
-
-
-class observer_gui:
-    def __init__(self, pyqt_signal):
-        self.sig = pyqt_signal
-
-    def display(self, message):
-        self.sig.emit(message)
-
-
-# Retrieves variable name as a str:
-# Found here: https://stackoverflow.com/questions/18425225/getting-the-name-of-a-variable-as-a-string
-def retrieve_var_name(x, Vars=vars()):
-    for k in Vars:
-        if type(x) == type(Vars[k]) and x is Vars[k]:
-            return k
-    return None
-
-
 # This functions loads the training set at specified paths.
 # INPUTS:
 #   path_data  : list of strings '/path/to/tomogram.ext'
@@ -169,35 +144,6 @@ def load_dataset(path_data, path_target, dset_name="dataset"):
 
         data_list.append(data)
         target_list.append(target)
-    return data_list, target_list
-
-
-def load_copick_datasets(copickPath, train_instance, tomoIDs=None):
-    data_list = {}
-    target_list = {}
-
-    copickRoot = copick.from_file(copickPath)
-    if tomoIDs is None:
-        tomoIDs = [run.name for run in copickRoot.runs]
-
-    print(f"Loading Targets and Tomograms for the Following Runs: {list(tomoIDs)}")
-    for idx in tqdm(range(len(tomoIDs))):
-        target_list[tomoIDs[idx]] = copicktools.get_copick_segmentation(
-            copickRoot.get_run(tomoIDs[idx]),
-            train_instance.labelName,
-            train_instance.labelUserID,
-        )[:]
-        data_list[tomoIDs[idx]] = copicktools.read_copick_tomogram_group(
-            copickRoot,
-            train_instance.voxelSize,
-            train_instance.tomoAlg,
-            tomoIDs[idx],
-        )[0][:]
-
-        if data_list[tomoIDs[idx]].shape != target_list[tomoIDs[idx]].shape:
-            print(f"DeepFinder Message: tomogram and target for run {tomoIDs[idx]} are not of same size!")
-            sys.exit()
-
     return data_list, target_list
 
 
@@ -308,29 +254,9 @@ def get_patch_position(tomodim, p_in, obj, Lrnd):
     y = int(obj["y"])
     z = int(obj["z"])
 
-    # Add random shift to coordinates:
-    x = x + np.random.choice(range(-Lrnd, Lrnd + 1))
-    y = y + np.random.choice(range(-Lrnd, Lrnd + 1))
-    z = z + np.random.choice(range(-Lrnd, Lrnd + 1))
+    x, y, z = add_random_shift(tomodim, p_in, Lrnd, x, y, z)
 
-    # Shift position if too close to border:
-    if x < p_in:
-        x = p_in
-    if y < p_in:
-        y = p_in
-    if z < p_in:
-        z = p_in
-    if x > tomodim[2] - p_in:
-        x = tomodim[2] - p_in
-    if y > tomodim[1] - p_in:
-        y = tomodim[1] - p_in
-    if z > tomodim[0] - p_in:
-        z = tomodim[0] - p_in
-
-    # else: # sample random position in tomogram
-    #    x = np.int32( np.random.choice(range(p_in,tomodim[0]-p_in)) )
-    #    y = np.int32( np.random.choice(range(p_in,tomodim[0]-p_in)) )
-    #    z = np.int32( np.random.choice(range(p_in,tomodim[0]-p_in)) )
+    return x, y, z
 
 
 def get_copick_patch_position(tomodim, p_in, Lrnd, voxelSize, copicks):
@@ -339,6 +265,12 @@ def get_copick_patch_position(tomodim, p_in, Lrnd, voxelSize, copicks):
     y = int(copicks.location.y / voxelSize)
     z = int(copicks.location.z / voxelSize)
 
+    x, y, z = add_random_shift(tomodim, p_in, Lrnd, x, y, z)
+
+    return x, y, z
+
+
+def add_random_shift(tomodim, p_in, Lrnd, x, y, z):
     # Add random shift to coordinates:
     x = x + np.random.choice(range(-Lrnd, Lrnd + 1))
     y = y + np.random.choice(range(-Lrnd, Lrnd + 1))
@@ -362,8 +294,6 @@ def get_copick_patch_position(tomodim, p_in, Lrnd, voxelSize, copicks):
     #    x = np.int32( np.random.choice(range(p_in,tomodim[0]-p_in)) )
     #    y = np.int32( np.random.choice(range(p_in,tomodim[0]-p_in)) )
     #    z = np.int32( np.random.choice(range(p_in,tomodim[0]-p_in)) )
-
-    return x, y, z
 
     return x, y, z
 

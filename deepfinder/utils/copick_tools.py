@@ -1,13 +1,17 @@
-from scipy.spatial.transform import Rotation as R
-from typing import List, Dict, Any
-import json, zarr, starfile, os
-import ome_zarr.writer
-import numpy as np
+import json
+import os
+from typing import Any, Dict, List
+
 import copick
+import numpy as np
+import ome_zarr.writer
+import pandas as pd
+import starfile
+import zarr
+from scipy.spatial.transform import Rotation as R
 
 
 def get_copick_project_tomoIDs(copickRoot):
-
     copickRoot = copick.from_file(copickRoot)
     tomoIDs = [run.name for run in copickRoot.runs]
 
@@ -28,10 +32,7 @@ def read_copick_tomogram_group(copickRoot, voxelSize, tomoAlgorithm, tomoID=None
     """
 
     # Get First Run and Pull out Tomgram
-    if tomoID == None:
-        run = copickRoot.get_run(copickRoot.runs[0].name)
-    else:
-        run = copickRoot.get_run(tomoID)
+    run = copickRoot.get_run(copickRoot.runs[0].name) if tomoID is None else copickRoot.get_run(tomoID)
 
     tomogram = run.get_voxel_spacing(voxelSize).get_tomogram(tomoAlgorithm)
 
@@ -91,7 +92,7 @@ def get_target_empty_tomogram(copickRoot, voxelSize=10, tomoAlgorithm="denoised"
     return np.zeros(get_copick_tomogram_shape(copickRoot, voxelSize, tomoAlgorithm), dtype=np.int8)
 
 
-def get_copick_segmentation(copickRun, segmentationName="test-segmentation7", userID="deepfinder"):
+def get_copick_segmentation(copickRun, segmentationName="test-segmentation7", userID="deepfinder", sessionID="0"):
     """Return a Specified Copick Segmentation.
     Args:
         copickRun: Target Copick Run to Extract Tomogram.
@@ -103,7 +104,7 @@ def get_copick_segmentation(copickRun, segmentationName="test-segmentation7", us
     """
 
     # Get the Segmentation from the Following Copick Run
-    seg = copickRun.get_segmentations(name=segmentationName, user_id=userID)[0]
+    seg = copickRun.get_segmentations(name=segmentationName, user_id=userID, session_id=sessionID)[0]
 
     # Return the Corresponding Segmentation Volume
     store = seg.zarr()
@@ -132,7 +133,7 @@ def get_ground_truth_coordinates(copickRun, voxelSize, proteinIndex):
                 picks.points[ii].location.x / voxelSize,
                 picks.points[ii].location.y / voxelSize,
                 picks.points[ii].location.z / voxelSize,
-            )
+            ),
         )
 
     return np.array(coords)
@@ -173,7 +174,6 @@ def read_copick_json(filePath):
 
     # Loop through each point in the JSON data
     for point in data["points"]:
-
         rotationMatrix = []
 
         # Extract the location and convert it to a NumPy array
@@ -190,9 +190,8 @@ def read_copick_json(filePath):
 
 
 def convert_copick_coordinates_to_xml(copickRun, xml_objects, pixelSize=10):
-
     picks = copickRun.picks
-    for proteinLabel in range(len(picks)):
+    for _proteinLabel in range(len(picks)):
         xml_objects.append()
 
     return xml_objects
@@ -233,7 +232,7 @@ def write_relion_output(specimen, tomoID, coords, outputDirectory="refinedCoPick
         outputStarFile["rlnAnglePsi"] = []
 
     # Write
-    if tomoID == None:
+    if tomoID is None:
         savePath = os.path.join(outputDirectory, f"{specimen}.star")
     else:
         savePath = os.path.join(outputDirectory, tomoID, f"{tomoID}_{specimen}.star")
@@ -276,7 +275,6 @@ def write_copick_output(
 
     json_data["points"] = []
     for ii in range(finalPicks.shape[0]):
-
         rotationMatrix = convert_euler_to_rotation_matrix(finalPicks[ii, 3], finalPicks[ii, 4], finalPicks[ii, 5])
 
         # Append to points data
@@ -286,7 +284,7 @@ def write_copick_output(
                 "transformation_": rotationMatrix,  # Convert matrix to list for JSON serialization
                 "instance_id": 0,
                 "score": 1.0,
-            }
+            },
         )
 
     # Generate custom formatted JSON
@@ -300,7 +298,6 @@ def write_copick_output(
 
 
 def custom_format_json(data):
-
     result = "{\n"
     for key, value in data.items():
         if key == "points":
@@ -314,7 +311,7 @@ def custom_format_json(data):
                             result += '         "{}": {{ {} }},\n'.format(p_key, loc_str)
                         if p_key == "transformation_":
                             trans_str = ",\n            ".join(
-                                ["[{}]".format(", ".join(map(str, row))) for row in p_value]
+                                ["[{}]".format(", ".join(map(str, row))) for row in p_value],
                             )
                             result += '         "{}": [\n            {}\n         ],\n'.format(p_key, trans_str)
                     else:
@@ -397,7 +394,12 @@ def ome_zarr_transforms(voxel_size: float) -> List[Dict[str, Any]]:
 
 
 def write_ome_zarr_segmentation(
-    run, inputSegmentVol, voxelSize=10, segmentationName="segmentation", userID="deepfinder", sessionID="0"
+    run,
+    inputSegmentVol,
+    voxelSize=10,
+    segmentationName="segmentation",
+    userID="deepfinder",
+    sessionID="0",
 ):
     """
     Write a OME-Zarr segmentation into a Copick Directory.
@@ -411,9 +413,13 @@ def write_ome_zarr_segmentation(
     # Create a new segmentation or Read Previous Segmentation
     try:
         seg = run.new_segmentation(
-            voxel_size=voxelSize, name=segmentationName, session_id=sessionID, is_multilabel=True, user_id=userID
+            voxel_size=voxelSize,
+            name=segmentationName,
+            session_id=sessionID,
+            is_multilabel=True,
+            user_id=userID,
         )
-    except:
+    except ValueError:
         seg = run.get_segmentations(name=segmentationName, user_id=userID, session_id=sessionID)[0]
 
     # Write the zarr file
