@@ -240,6 +240,7 @@ def query_available_picks(copickRoot, tomoIDs=None):
     proteinCoordsList = []
     for tomoInd in range(len(tomoIDs)):
         copickRun = copickRoot.get_run(tomoIDs[tomoInd])
+        print(copickRun.picks)
         for proteinInd in range(len(copickRun.picks)):
             picks = copickRun.picks[proteinInd]
 
