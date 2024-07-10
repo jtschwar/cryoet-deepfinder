@@ -52,6 +52,7 @@ class Train(core.DeepFinder):
         self.sample_weights = None  # np array same lenght as objl_train
         self.trainTomoIDs = None
         self.validTomoIDs = None
+        self.targets = None
 
         self.flag_direct_read = 1
         self.flag_batch_bootstrap = 0

@@ -228,7 +228,7 @@ def get_bootstrap_idx(objlist, Nbs):
     return bs_idx
 
 
-def query_available_picks(copickRoot, tomoIDs=None):
+def query_available_picks(copickRoot, tomoIDs=None, targets=None):
     # Load TomoIDs - Default is Read All TomoIDs from Path
     if tomoIDs is None:
         tomoIDs = [run.name for run in copickRoot.runs]
@@ -238,11 +238,24 @@ def query_available_picks(copickRoot, tomoIDs=None):
     pickIndList = []
     proteinIndList = []
     proteinCoordsList = []
+
     for tomoInd in range(len(tomoIDs)):
         copickRun = copickRoot.get_run(tomoIDs[tomoInd])
         print(copickRun.picks)
-        for proteinInd in range(len(copickRun.picks)):
-            picks = copickRun.picks[proteinInd]
+
+        if targets is None:
+            query = copickRun.picks
+        else:
+            query = []
+            for target_name in targets:
+                query += copickRun.get_picks(
+                    object_name=target_name,
+                    user_id=targets[target_name]["user_id"],
+                    session_id=targets[target_name]["session_id"],
+                )
+
+        for proteinInd in range(len(query)):
+            picks = query[proteinInd]
 
             nPicks = len(picks.points)
             tomoIDList.append([tomoIDs[tomoInd]] * nPicks)

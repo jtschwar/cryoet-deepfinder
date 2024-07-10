@@ -1,4 +1,5 @@
 import os
+from typing import List, Tuple
 
 import click
 import copick
@@ -39,6 +40,13 @@ def cli(ctx):
     type=str,
     required=True,
     help="Type of tomograms used for training.",
+)
+@click.option(
+    "--target",
+    type=(str, str, str),
+    required=False,
+    help="Tuples of object name, user id, session id and radius.",
+    multiple=True,
 )
 @click.option(
     "--output-path",
@@ -179,6 +187,7 @@ def train(
     path_train: str,
     train_voxel_size: int,
     train_tomo_type: str,
+    target: List[Tuple[str, str, str]],
     output_path: str,
     n_class: int,
     path_valid: str = None,
@@ -238,7 +247,15 @@ def train(
     trainer.NsubEpoch = n_sub_epoch
     trainer.sample_size = sample_size
 
-    #############################################################################
+    targets = {}
+    for t in target:
+        info = {
+            "user_id": t[1],
+            "session_id": t[2],
+        }
+        targets[t[0]] = info
+
+    trainer.targets = targets
 
     # Create output Path
     os.makedirs(output_path, exist_ok=True)
