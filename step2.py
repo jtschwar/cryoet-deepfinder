@@ -208,9 +208,6 @@ def train(
     trainVoxelSize = train_voxel_size
     trainTomoAlg = train_tomo_type
 
-    # Path To Save Training Results
-    # output_path = f'copick_pickathon_June2024/{trainTomoAlg}_training_results/'
-
     # Input parameters:
     Nclass = n_class
 
