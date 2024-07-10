@@ -1,4 +1,4 @@
-from typing import List, Tuple, Union
+from typing import List, Tuple
 
 import click
 import copick
@@ -31,9 +31,14 @@ def cli(ctx):
     help="Tuples of object name, user id and session id for segmentation.",
     multiple=True,
 )
-@click.option("--tomo-ids", type=str, required=True, help="Comma separated list of Tomogram IDs.")
-@click.option("--user-id", type=str, default=None, show_default=True, help="User ID filter for input.")
-@click.option("--session-id", type=str, default=None, show_default=True, help="Session ID filter for input.")
+@click.option(
+    "--tomo-ids",
+    type=str,
+    required=False,
+    default=None,
+    show_default=True,
+    help="Comma separated list of Tomogram IDs.",
+)
 @click.option("--voxel-size", type=float, default=10, help="Voxel size.")
 @click.option("--tomogram-algorithm", type=str, default="wbp", help="Tomogram algorithm.")
 @click.option("--out-name", type=str, default="spheretargets", help="Target name.")
@@ -44,8 +49,6 @@ def create(
     target: List[Tuple[str, str, str, int]],
     seg_target: List[Tuple[str, str, str]],
     tomo_ids: str,
-    user_id: Union[str, None],
-    session_id: str,
     voxel_size: float = 10,
     tomogram_algorithm: str = "wbp",
     out_name: str = "spheretargets",
@@ -90,7 +93,7 @@ def create(
         radius_list[value["label"] - 1] = value["radius"] if value["radius"] is not None else 0
 
     # Load tomo_ids
-    tomo_ids = tomo_ids.split(",")
+    tomo_ids = [run.name for run in copickRoot.runs] if tomo_ids is None else tomo_ids.split(",")
 
     # Add Spherical Targets to Mebranes
     tbuild = TargetBuilder()
