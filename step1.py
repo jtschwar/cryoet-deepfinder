@@ -112,8 +112,8 @@ def create(
             if not train_targets[target_name]["is_particle_target"]:
                 query_seg += copickRun.get_segmentations(
                     object_name=target_name,
-                    user_id=user_id,
-                    session_id=session_id,
+                    user_id=train_targets[target_name]["user_id"],
+                    session_id=train_targets[target_name]["session_id"],
                     voxel_size=voxel_size,
                     is_multilabel=False,
                 )
@@ -129,7 +129,11 @@ def create(
         query = []
         for target_name in target_names:
             if train_targets[target_name]["is_particle_target"]:
-                query += copickRun.get_picks(object_name=target_name, user_id=user_id, session_id=session_id)
+                query += copickRun.get_picks(
+                    object_name=target_name,
+                    user_id=train_targets[target_name]["user_id"],
+                    session_id=train_targets[target_name]["session_id"],
+                )
 
         # Read Particle Coordinates and Write as Segmentation
         objl_coords = []
