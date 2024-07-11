@@ -504,7 +504,7 @@ def write_ome_zarr_scoremap(
     - sessionID (str): The session ID. Default is '0'.
     - tomo_type (str): The type of tomogram. Default is 'denoised'.
     """
-
+    inputScoreVol = np.transpose(inputScoreVol, (3, 0, 1, 2))
     # Create a new segmentation or Read Previous Segmentation
     tomo = run.get_voxel_spacing(voxelSize).get_tomogram(tomo_type)
 
