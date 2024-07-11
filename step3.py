@@ -60,6 +60,13 @@ def cli(ctx):
     default=False,
     help="Patch of Volume for Input to Network.",
 )
+@click.option(
+    "--tomo-ids",
+    type=str,
+    required=False,
+    default=None,
+    help="Tomogram IDs to Segment.",
+)
 def segment(
     predict_config: str,
     path_weights: str,
@@ -70,6 +77,7 @@ def segment(
     voxel_size: float = 10,
     tomogram_algorithm: str = "denoised",
     parallel_mpi: bool = False,
+    tomo_ids: str = None,
 ):
     # Determine if Using MPI or Sequential Processing
     if parallel_mpi:
@@ -95,7 +103,7 @@ def segment(
     seg = Segment(Ncl=n_class, path_weights=path_weights, patch_size=patch_size)
 
     # # Load Evaluate TomoIDs
-    evalTomos = [run.name for run in copickRoot.runs]
+    evalTomos = tomo_ids.split(",") if tomo_ids is not None else [run.name for run in copickRoot.runs]
 
     # Create Temporary Empty Folder
     for tomoInd in range(len(evalTomos)):
