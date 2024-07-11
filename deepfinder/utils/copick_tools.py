@@ -498,11 +498,7 @@ def write_ome_zarr_scoremap(
 
     if feat is None:
         feat = tomo.new_features(
-            voxel_size=voxelSize,
-            name=scoremapName,
-            session_id=sessionID,
-            user_id=userID,
-            tomogram=tomo,
+            feature_type=scoremapName,
         )
 
     # Write the zarr file
