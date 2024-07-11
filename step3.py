@@ -83,6 +83,14 @@ def cli(ctx):
     show_default=True,
     help="Output name for scoremap.",
 )
+@click.option(
+    "--segmentation-name",
+    type=str,
+    required=False,
+    default="segmentation",
+    show_default=True,
+    help="Output name for segmentation.",
+)
 def segment(
     predict_config: str,
     path_weights: str,
@@ -96,6 +104,7 @@ def segment(
     tomo_ids: str = None,
     output_scoremap: bool = False,
     scoremap_name: str = "scoremap",
+    segmentation_name: str = "segmentation",
 ):
     # Determine if Using MPI or Sequential Processing
     if parallel_mpi:
@@ -144,11 +153,26 @@ def segment(
 
             # Write scoremaps to file:
             if output_scoremap:
-                tools.write_ome_zarr_scoremap(copickRun, scoremaps, voxel_size, user_id, session_id, scoremap_name)
+                tools.write_ome_zarr_scoremap(
+                    copickRun,
+                    scoremaps,
+                    voxelSize=voxel_size,
+                    scoremapName=scoremap_name,
+                    userID=user_id,
+                    sessionID=session_id,
+                    tomo_type=tomogram_algorithm,
+                )
 
             # Get labelmap from scoremaps:
             labelmap = sm.to_labelmap(scoremaps)
-            tools.write_ome_zarr_segmentation(copickRun, labelmap, voxel_size, user_id, session_id)
+            tools.write_ome_zarr_segmentation(
+                copickRun,
+                labelmap,
+                voxelSize=voxel_size,
+                segmentationName=segmentation_name,
+                userID=user_id,
+                sessionID=session_id,
+            )
 
     print("Segmentations Complete!")
 
