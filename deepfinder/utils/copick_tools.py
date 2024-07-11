@@ -510,6 +510,6 @@ def write_ome_zarr_scoremap(
         group=root_group,
         axes=ome_zarr_feature_axes(),
         coordinate_transformations=[ome_zarr_transforms(voxelSize)],
-        storage_options=dict(chunks=(1, 256, 256, 256), overwrite=True),
+        storage_options=dict(chunks=(10, 256, 256, 256), overwrite=True),
         compute=True,
     )
