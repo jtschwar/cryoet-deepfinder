@@ -67,6 +67,22 @@ def cli(ctx):
     default=None,
     help="Tomogram IDs to Segment.",
 )
+@click.option(
+    "--output-scoremap",
+    type=bool,
+    required=False,
+    default=False,
+    show_default=True,
+    help="Output scoremap.",
+)
+@click.option(
+    "--scoremap-name",
+    type=str,
+    required=False,
+    default="scoremap",
+    show_default=True,
+    help="Output name for scoremap.",
+)
 def segment(
     predict_config: str,
     path_weights: str,
@@ -78,6 +94,8 @@ def segment(
     tomogram_algorithm: str = "denoised",
     parallel_mpi: bool = False,
     tomo_ids: str = None,
+    output_scoremap: bool = False,
+    scoremap_name: str = "scoremap",
 ):
     # Determine if Using MPI or Sequential Processing
     if parallel_mpi:
@@ -122,9 +140,14 @@ def segment(
             # Segment tomogram:
             scoremaps = seg.launch(tomo[:])
 
+            copickRun = copickRoot.get_run(tomoID)
+
+            # Write scoremaps to file:
+            if output_scoremap:
+                tools.write_ome_zarr_scoremap(copickRun, scoremaps, voxel_size, user_id, session_id, scoremap_name)
+
             # Get labelmap from scoremaps:
             labelmap = sm.to_labelmap(scoremaps)
-            copickRun = copickRoot.get_run(tomoID)
             tools.write_ome_zarr_segmentation(copickRun, labelmap, voxel_size, user_id, session_id)
 
     print("Segmentations Complete!")
