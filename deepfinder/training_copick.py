@@ -208,9 +208,10 @@ class Train(core.DeepFinder):
         Ncl,
         flag_batch_bootstrap=True,
         tomoIDs=None,
+        targets=None,
     ):
         copickRoot = copick.from_file(copick_path)
-        organizedPicksDict = core.query_available_picks(copickRoot, tomoIDs)
+        organizedPicksDict = core.query_available_picks(copickRoot, tomoIDs, targets)
         dataset = tf.data.Dataset.from_generator(
             lambda: self.copick_data_generator(
                 input_dataset,

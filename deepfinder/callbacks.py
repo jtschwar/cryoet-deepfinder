@@ -1,12 +1,15 @@
-from sklearn.metrics import precision_recall_fscore_support
-from .utils import copick_tools as copicktools
-import tensorflow as tf
-from .utils import core
-import numpy as np
 import gc
 
+import numpy as np
+import tensorflow as tf
+from sklearn.metrics import precision_recall_fscore_support
+
+from .utils import copick_tools as copicktools
+from .utils import core
+
+
 class DatasetSwapCallback(tf.keras.callbacks.Callback):
-    def __init__(self, train_instance, path_train, path_valid, plotting_callback = None):
+    def __init__(self, train_instance, path_train, path_valid, plotting_callback=None):
         """
         Callback to swap datasets every N epochs during training.
 
@@ -23,20 +26,23 @@ class DatasetSwapCallback(tf.keras.callbacks.Callback):
             path_valid (str, optional): The path to the validation data. If None, trainTomoIDs and validTomoIDs must be provided. Default is None.
             flag_batch_bootstrap (bool, optional): Whether to use batch bootstrap sampling. Default is True.
         """
-        
+
         super().__init__()
         self.train_instance = train_instance
-        self.epoch_count = 0   
+        self.epoch_count = 0
         self.plotting_callback = plotting_callback
         self.path_train = path_train
         self.path_valid = path_valid
 
     def generate_new_tensorflow_datasets(self):
-
         # Validate that either both training and validation paths are available, or both sets of tomoIDs are provided
-        if self.path_valid is None and (self.train_instance.trainTomoIDs is None or self.train_instance.validTomoIDs is None):
-            raise ValueError("Either 'path_valid' must be provided or both 'self.trainTomoIDs' and 'self.validTomoIDs' must be set.")
-        
+        if self.path_valid is None and (
+            self.train_instance.trainTomoIDs is None or self.train_instance.validTomoIDs is None
+        ):
+            raise ValueError(
+                "Either 'path_valid' must be provided or both 'self.trainTomoIDs' and 'self.validTomoIDs' must be set.",
+            )
+
         # Extract RunIDs for Validation and Training Datasets
         if self.path_valid is not None:
             self.train_instance.trainTomoIDs = copicktools.get_copick_project_tomoIDs(self.path_train)
@@ -46,18 +52,44 @@ class DatasetSwapCallback(tf.keras.callbacks.Callback):
             path_valid = self.path_train
 
         # Sample new sets of IDs for training and validation
-        sampled_train_ids = np.random.choice(self.train_instance.trainTomoIDs, self.train_instance.sample_size, replace=False)
-        sampled_valid_ids = np.random.choice(self.train_instance.validTomoIDs, self.train_instance.sample_size, replace=False)            
+        sampled_train_ids = np.random.choice(
+            self.train_instance.trainTomoIDs,
+            self.train_instance.sample_size,
+            replace=False,
+        )
+        sampled_valid_ids = np.random.choice(
+            self.train_instance.validTomoIDs,
+            self.train_instance.sample_size,
+            replace=False,
+        )
 
         # Load datasets based on the provided paths and sampled IDs
-        (trainData, trainTarget)  = core.load_copick_datasets(self.path_train, self.train_instance, sampled_train_ids)
+        (trainData, trainTarget) = core.load_copick_datasets(self.path_train, self.train_instance, sampled_train_ids)
         (validData, validTarget) = core.load_copick_datasets(path_valid, self.train_instance, sampled_valid_ids)
-        
+
         # Create TensorFlow datasets
-        train_dataset = self.train_instance.create_tf_dataset(self.path_train, trainData, trainTarget, self.train_instance.batch_size, self.train_instance.dim_in, 
-                                                              self.train_instance.Ncl, self.train_instance.flag_batch_bootstrap, sampled_train_ids)
-        valid_dataset = self.train_instance.create_tf_dataset(path_valid, validData, validTarget, self.train_instance.batch_size, self.train_instance.dim_in, 
-                                                              self.train_instance.Ncl, self.train_instance.flag_batch_bootstrap, sampled_valid_ids)    
+        train_dataset = self.train_instance.create_tf_dataset(
+            self.path_train,
+            trainData,
+            trainTarget,
+            self.train_instance.batch_size,
+            self.train_instance.dim_in,
+            self.train_instance.Ncl,
+            self.train_instance.flag_batch_bootstrap,
+            sampled_train_ids,
+            self.train_instance.targets,
+        )
+        valid_dataset = self.train_instance.create_tf_dataset(
+            path_valid,
+            validData,
+            validTarget,
+            self.train_instance.batch_size,
+            self.train_instance.dim_in,
+            self.train_instance.Ncl,
+            self.train_instance.flag_batch_bootstrap,
+            sampled_valid_ids,
+            self.train_instance.targets,
+        )
 
         return (train_dataset, valid_dataset)
 
@@ -68,10 +100,10 @@ class DatasetSwapCallback(tf.keras.callbacks.Callback):
         Args:
             epoch (int): The index of the epoch.
             logs (dict, optional): Additional information on training progress. Default is None.
-        """ 
+        """
         self.epoch_count += 1
         if self.epoch_count % self.train_instance.NsubEpoch == 0:
-            print(f"Swapping datasets at epoch {self.epoch_count}")             
+            print(f"Swapping datasets at epoch {self.epoch_count}")
 
             (new_train_dataset, new_valid_dataset) = self.generate_new_tensorflow_datasets()
 
@@ -85,18 +117,21 @@ class DatasetSwapCallback(tf.keras.callbacks.Callback):
 
 #  Custom callback to save model weights every 10 epochs.
 class SaveWeightsCallback(tf.keras.callbacks.Callback):
-    def __init__(self, path_out):      
+    def __init__(self, path_out):
         super().__init__()
         self.path_out = path_out
+
     def on_epoch_end(self, epoch, logs=None):
         if (epoch + 1) % 10 == 0:
-            self.model.save(self.path_out + f'net_weights_epoch{epoch + 1}.h5')       
+            self.model.save(self.path_out + f"net_weights_epoch{epoch + 1}.h5")
+
 
 # Clears the Keras backend session to free up memory - called at the end of every epoch.
 class ClearMemoryCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         tf.keras.backend.clear_session()
-        gc.collect()   
+        gc.collect()
+
 
 # Track and plot training metrics at the end of each epoch.
 class TrainingPlotCallback(tf.keras.callbacks.Callback):
@@ -114,8 +149,13 @@ class TrainingPlotCallback(tf.keras.callbacks.Callback):
         self.path_out = path_out
         self.label_list = label_list
         self.history = {
-            'loss': [], 'acc': [], 'val_loss': [], 'val_acc': [],
-            'val_f1': [], 'val_recall': [], 'val_precision': []
+            "loss": [],
+            "acc": [],
+            "val_loss": [],
+            "val_acc": [],
+            "val_f1": [],
+            "val_recall": [],
+            "val_precision": [],
         }
 
     def on_epoch_end(self, epoch, logs=None):
@@ -127,10 +167,10 @@ class TrainingPlotCallback(tf.keras.callbacks.Callback):
             logs (dict, optional): Additional information on training progress. Default is None.
         """
         # Append training metrics
-        self.history['loss'].append(logs.get('loss'))
-        self.history['acc'].append(logs.get('accuracy'))
-        self.history['val_loss'].append(logs.get('val_loss'))
-        self.history['val_acc'].append(logs.get('val_accuracy'))
+        self.history["loss"].append(logs.get("loss"))
+        self.history["acc"].append(logs.get("accuracy"))
+        self.history["val_loss"].append(logs.get("val_loss"))
+        self.history["val_acc"].append(logs.get("val_accuracy"))
 
         # Retrieve validation data and predictions
         val_data, val_target = [], []
@@ -147,15 +187,20 @@ class TrainingPlotCallback(tf.keras.callbacks.Callback):
         val_targ = np.argmax(val_target, axis=-1)
 
         # Calculate precision, recall, and F1-score
-        scores = precision_recall_fscore_support(val_targ.flatten(), val_predict.flatten(), average=None, labels=self.label_list)
+        scores = precision_recall_fscore_support(
+            val_targ.flatten(),
+            val_predict.flatten(),
+            average=None,
+            labels=self.label_list,
+        )
 
-        self.history['val_f1'].append(scores[2])
-        self.history['val_recall'].append(scores[1])
-        self.history['val_precision'].append(scores[0])
+        self.history["val_f1"].append(scores[2])
+        self.history["val_recall"].append(scores[1])
+        self.history["val_precision"].append(scores[0])
 
         # Save history and plot
-        core.save_history(self.history, self.path_out + 'net_train_history.h5')
-        core.plot_history(self.history, self.path_out + 'net_train_history_plot.png')
+        core.save_history(self.history, self.path_out + "net_train_history.h5")
+        core.plot_history(self.history, self.path_out + "net_train_history_plot.png")
 
 
 def log_images_func(model, validation_data, steps):
@@ -165,16 +210,17 @@ def log_images_func(model, validation_data, steps):
             break
         val_data.append(x.numpy())
         val_target.append(y.numpy())
-    
+
     val_data = np.concatenate(val_data, axis=0)
     val_target = np.concatenate(val_target, axis=0)
 
     val_predict = model.predict(val_data)
-    
-    return val_data, val_predict        
+
+    return val_data, val_predict
+
 
 class ImageLogger(tf.keras.callbacks.Callback):
-    def __init__(self, writer, log_images_func, validation_data, steps, prefix='train'):
+    def __init__(self, writer, log_images_func, validation_data, steps, prefix="train"):
         super().__init__()
         self.writer = writer
         self.log_images_func = log_images_func
@@ -185,18 +231,16 @@ class ImageLogger(tf.keras.callbacks.Callback):
     def extract_vol_infrance(self, inVol):
         return np.expand_dims(np.expand_dims(np.array(inVol), axis=0), axis=-1)
 
-    def log_images(self, writer, images, predictions, step, prefix='train'):
+    def log_images(self, writer, images, predictions, step, prefix="train"):
         with writer.as_default():
             for i, (image, prediction) in enumerate(zip(images, predictions)):
-                
                 img_tensor = self.extract_vol_infrance(image)
                 pred_tensor = self.extract_vol_infrance(prediction)
 
                 # Ensure tensors are not None
-                if img_tensor is not None and pred_tensor is not None:
+                if img_tensor is not None and pred_tensor is not None:  # noqa: SIM102
                     # Check the rank of the tensor
                     if len(img_tensor.shape) == 4:
-
                         # Select a middle slice for visualization
                         img_tensor = img_tensor[img_tensor.shape[0] // 2, :, :]
                         pred_tensor = pred_tensor[pred_tensor.shape[0] // 2, :, :]
