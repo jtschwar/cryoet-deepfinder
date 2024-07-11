@@ -82,9 +82,8 @@ def segment(
         nProcess = comm.Get_size()
 
         cuda.init()
-        locGPU = rank % cuda.Device.count()
+        rank % cuda.Device.count()
     else:
-        locGPU = None
         nProcess = 1
         rank = 0
 
@@ -93,7 +92,7 @@ def segment(
     # Load CoPick root
     copickRoot = copick.from_file(predict_config)
 
-    seg = Segment(Ncl=n_class, path_weights=path_weights, patch_size=patch_size, gpuID=locGPU)
+    seg = Segment(Ncl=n_class, path_weights=path_weights, patch_size=patch_size)
 
     # # Load Evaluate TomoIDs
     evalTomos = [run.name for run in copickRoot.runs]
