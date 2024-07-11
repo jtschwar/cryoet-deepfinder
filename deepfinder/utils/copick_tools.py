@@ -469,6 +469,20 @@ def ome_zarr_feature_axes() -> List[Dict[str, str]]:
     ]
 
 
+def ome_zarr_feature_transforms(voxel_size: float) -> List[Dict[str, Any]]:
+    """
+    Return a list of dictionaries defining the coordinate transformations of OME-Zarr dataset.
+
+    Parameters:
+    - voxel_size (float): The size of a voxel.
+
+    Returns:
+    - List[Dict[str, Any]]: A list containing a single dictionary with the 'scale' transformation,
+      specifying the voxel size for each axis and the transformation type as 'scale'.
+    """
+    return [{"scale": [voxel_size, voxel_size, voxel_size, voxel_size], "type": "scale"}]
+
+
 def write_ome_zarr_scoremap(
     run,
     inputScoreVol,
@@ -509,7 +523,7 @@ def write_ome_zarr_scoremap(
         [inputScoreVol],
         group=root_group,
         axes=ome_zarr_feature_axes(),
-        coordinate_transformations=[ome_zarr_transforms(voxelSize)],
-        storage_options=dict(chunks=(10, 256, 256, 256), overwrite=True),
+        coordinate_transformations=[ome_zarr_feature_transforms(voxelSize)],
+        storage_options=dict(chunks=(1, 256, 256, 256), overwrite=True),
         compute=True,
     )
