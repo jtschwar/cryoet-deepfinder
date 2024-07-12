@@ -14,8 +14,9 @@ from tensorflow.keras import mixed_precision
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
 
-from . import callbacks, losses, models
-from .utils import core
+from deepfinder.models import model_loader
+from deepfinder import callbacks, losses
+from deepfinder.utils import core
 
 policy = mixed_precision.Policy("mixed_float16")
 mixed_precision.set_global_policy(policy)
@@ -30,7 +31,9 @@ class Train(core.DeepFinder):
         # Network parameters:
         self.Ncl = Ncl  # Number of Classes
         self.dim_in = dim_in  # /!\ has to a multiple of 4 (because of 2 pooling layers), so that dim_in=dim_out
-        self.net = models.my_model(self.dim_in, self.Ncl)
+        
+        # Initialize Empty network:
+        self.net = None
 
         self.label_list = []
         for l in range(self.Ncl):
@@ -72,6 +75,9 @@ class Train(core.DeepFinder):
         self.is_positive_int(self.steps_per_epoch, "steps_per_epoch")
         self.is_positive_int(self.steps_per_valid, "steps_per_valid")
         self.is_int(self.Lrnd, "Lrnd")
+
+    def load_model(self, model_name, trained_weights_path = None):
+        self.net = model_loader(self.dim_in, self.Ncl, model_name, trained_weights_path)        
 
     # This function launches the training procedure. For each epoch, an image is plotted, displaying the progression
     # with different metrics: loss, accuracy, f1-score, recall, precision. Every 10 epochs, the current network weights
@@ -123,6 +129,9 @@ class Train(core.DeepFinder):
 
         """
         self.check_attributes()
+
+        if self.net is None:
+            self.net = model_loader.load_model(self.dim_in, self.Ncl, 'unet', None)          
 
         # TensorBoard writer
         log_dir = self.path_out + "tensorboard_logs/"

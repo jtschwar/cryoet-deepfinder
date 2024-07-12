@@ -13,15 +13,9 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
 import tensorflow.keras.backend as K
 
-import matplotlib.pyplot as plt
-from sklearn.metrics import precision_recall_fscore_support
-from sklearn.utils.class_weight import compute_class_weight
-
-from .utils import common as cm
-from .utils import core
-from . import callbacks
-from . import models
-from . import losses
+from deepfinder.models import model_loader
+from deepfinder import callbacks, losses
+from deepfinder.utils import core
 
 # Enable mixed precision
 from tensorflow.keras import mixed_precision
@@ -35,23 +29,12 @@ class Train(core.DeepFinder):
         self.path_out = './'
         self.h5_dset_name = 'dataset' # if training set is stored as .h5 file, specify here in which h5 dataset the arrays are stored
 
-        # Check GPU memory limit
-        gpus = tf.config.experimental.list_physical_devices('GPU')
-        if gpus:
-            try:
-                # Enable memory growth for the GPU
-                for gpu in gpus:
-                    tf.config.experimental.set_memory_growth(gpu, True)
-
-            except RuntimeError as e:
-                print(e)
-        else:
-            print("No GPU found.")  
-
         # Network parameters:
         self.Ncl = Ncl  # Ncl
         self.dim_in = dim_in  # /!\ has to a multiple of 4 (because of 2 pooling layers), so that dim_in=dim_out
-        self.net = models.my_model(self.dim_in, self.Ncl)
+        
+        # Initialize Empty network:
+        self.net = None
 
         self.label_list = []
         for l in range(self.Ncl): self.label_list.append(l) # for precision_recall_fscore_support
@@ -82,6 +65,9 @@ class Train(core.DeepFinder):
         self.is_positive_int(self.steps_per_epoch, 'steps_per_epoch')
         self.is_positive_int(self.steps_per_valid, 'steps_per_valid')
         self.is_int(self.Lrnd, 'Lrnd')
+
+    def load_model(self, model_name, trained_weights_path = None):
+        self.net = model_loader(self.dim_in, self.Ncl, model_name, trained_weights_path)        
 
     # This function launches the training procedure. For each epoch, an image is plotted, displaying the progression
     # with different metrics: loss, accuracy, f1-score, recall, precision. Every 10 epochs, the current network weights
@@ -137,11 +123,24 @@ class Train(core.DeepFinder):
 
         # TensorBoard writer
         log_dir = self.path_out + "tensorboard_logs/"
-        writer = tf.summary.create_file_writer(log_dir)        
+        tf.summary.create_file_writer(log_dir)        
         tf_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, profile_batch='500,520')
 
         # gpus = tf.config.list_logical_devices('GPU')
         # strategy = tf.distribute.MirroredStrategy(gpus)
+
+        # Check GPU memory limit
+        gpus = tf.config.experimental.list_physical_devices('GPU')
+        if gpus:
+            try:
+                # Enable memory growth for the GPU
+                for gpu in gpus:
+                    tf.config.experimental.set_memory_growth(gpu, True)
+
+            except RuntimeError as e:
+                print(e)
+        else:
+            print("No GPU found.")  
 
         # Build network (not in constructor, else not possible to init model with weights from previous train round):
         self.net.compile(optimizer=self.optimizer, loss=self.loss, metrics=['accuracy'])
@@ -167,14 +166,17 @@ class Train(core.DeepFinder):
         self.display('Launch training ...')
 
         # Train the model using model.fit()
-        history = self.net.fit(
+        self.net.fit(
             train_dataset,
             epochs=self.epochs,
             steps_per_epoch=self.steps_per_epoch,
             class_weight=self.class_weights,
             validation_data=valid_dataset,
             validation_steps=self.steps_per_valid,
-            callbacks=[tf_callback, save_weights_callback,plotting_callback,learning_rate_callback],
+            callbacks=[tf_callback, 
+                       save_weights_callback,
+                       plotting_callback,
+                       learning_rate_callback],
             verbose=1
         )
 
