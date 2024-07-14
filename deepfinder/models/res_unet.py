@@ -1,5 +1,5 @@
 from tensorflow.keras.layers import Conv3D, MaxPooling3D, UpSampling3D, BatchNormalization, LeakyReLU
-from tensorflow.keras.layers import Input, concatenate
+from tensorflow.keras.layers import Input, concatenate, Add
 from tensorflow.keras.models import Model
 
 def residual_block(input, filters, kernel_size=(3,3,3)):
