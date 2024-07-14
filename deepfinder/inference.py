@@ -5,8 +5,8 @@
 # License: GPL v3.0. See <https://www.gnu.org/licenses/>
 # =============================================================================================
 
+from deepfinder.models import model_loader
 from deepfinder.utils import core
-from deepfinder import models
 import tensorflow as tf
 import numpy as np
 import time
@@ -16,9 +16,8 @@ from tensorflow.keras import mixed_precision
 policy = mixed_precision.Policy('mixed_float16')
 mixed_precision.set_global_policy(policy)
 
-
 class Segment(core.DeepFinder):
-    def __init__(self, Ncl, path_weights, patch_size=192, gpuID = None):
+    def __init__(self, Ncl, model_name, path_weights, patch_size=192, gpuID = None):
         core.DeepFinder.__init__(self)
 
         self.Ncl = Ncl
@@ -32,7 +31,7 @@ class Segment(core.DeepFinder):
         self.check_attributes()
 
         # Initialize Empty network:
-        self.net = None
+        self.net = model_loader(patch_size, Ncl, model_name, path_weights)
 
         # Set GPU configuration
         gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -164,3 +163,5 @@ class Segment(core.DeepFinder):
         self.is_3D_nparray(dataArray, 'tomogram')
         self.check_array_minsize([dataArray, patch_size], ['tomogram', 'patch'])
 
+if __name__ == "__main__":
+    cli()

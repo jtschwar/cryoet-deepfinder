@@ -235,7 +235,6 @@ def query_available_picks(copickRoot, tomoIDs=None, targets=None):
 
     for tomoInd in range(len(tomoIDs)):
         copickRun = copickRoot.get_run(tomoIDs[tomoInd])
-        print(copickRun.picks)
 
         if targets is None:
             query = copickRun.picks

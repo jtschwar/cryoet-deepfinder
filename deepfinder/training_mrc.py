@@ -127,7 +127,7 @@ class Train(core.DeepFinder):
         # TensorBoard writer
         log_dir = self.path_out + "tensorboard_logs/"
         tf.summary.create_file_writer(log_dir)        
-        tf_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, profile_batch='500,520')
+        tf_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, profile_batch=0)
 
         # gpus = tf.config.list_logical_devices('GPU')
         # strategy = tf.distribute.MirroredStrategy(gpus)

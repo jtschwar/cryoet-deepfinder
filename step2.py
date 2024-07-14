@@ -1,18 +1,13 @@
-import os
-from typing import List, Tuple
-
-import click
-import copick
-
-import deepfinder.utils.common as cm
 from deepfinder.training_copick import Train
+import deepfinder.utils.common as cm
+from typing import List, Tuple
+import copick, click, os
 
 
 @click.group()
 @click.pass_context
 def cli(ctx):
     pass
-
 
 @cli.command()
 @click.option(
@@ -53,6 +48,22 @@ def cli(ctx):
     type=str,
     required=True,
     help="Path to store the training results.",
+)
+@click.option(
+    "--model-name",
+    type=str,
+    required=False,
+    default='res_unet',
+    show_default=True,
+    help="Model Architecture Name to Load For Training",
+)
+@click.option(
+    "--model-pre-weights",
+    type=str,
+    required=False,
+    default=None,
+    show_default=True,
+    help="Pre-Trained Model Weights To Load Prior to Training",
 )
 @click.option(
     "--n-class",
@@ -158,15 +169,6 @@ def cli(ctx):
     show_default=True,
     help="User ID of the segmentation target.",
 )
-# @click.option(
-#     "--class-weight",
-#     type=(str, float),
-#     multiple=True,
-#     required=False,
-#     default=None,
-#     show_default=True,
-#     help="Class weights.",
-# )
 @click.option(
     "--valid-tomo-ids",
     type=str,
@@ -183,12 +185,23 @@ def cli(ctx):
     show_default=True,
     help="List of training tomoIDs.",
 )
+# @click.option(
+#     "--class-weight",
+#     type=(str, float),
+#     multiple=True,
+#     required=False,
+#     default=None,
+#     show_default=True,
+#     help="Class weights.",
+# )
 def train(
     path_train: str,
     train_voxel_size: int,
     train_tomo_type: str,
     target: List[Tuple[str, str, str]],
     output_path: str,
+    model_name: str,
+    model_pre_weights: str,
     n_class: int,
     path_valid: str = None,
     dim_in: int = 52,
@@ -203,10 +216,11 @@ def train(
     batch_bootstrap: bool = True,
     label_name: str = "spheretargets",
     label_user_id: str = "train-deepfinder",
-    # class_weight: dict = None,
     valid_tomo_ids: str = None,
     train_tomo_ids: str = None,
+    # class_weight: dict = None,
 ):
+    
     # Parse input parameters
     if valid_tomo_ids is not None:
         valid_tomo_ids = valid_tomo_ids.split(",")
@@ -237,10 +251,11 @@ def train(
 
     # Experimental Weights - [background, membrane, apo, betaAmylase, betaGal, ribo80S, thg, vlp]
     trainer.class_weights = None
-    # trainer.class_weights    = {0:1, 1:3000, 2:6500, 3:70790, 4:800, 5:20225, 6:10300, 7:28000}
 
-    # Use following line if you want to resume a previous training session:
-    # trainer.net.load_weights('synthetic_dataset_10A/training_results/net_weights_FINAL.h5')
+    # Load Specified Model Architecture and Potential Pre-Trained Weights
+    trainer.load_model(model_name, model_pre_weights)
+
+    # trainer.class_weights    = {0:1, 1:3000, 2:6500, 3:70790, 4:800, 5:20225, 6:10300, 7:28000}
 
     # A Certain Number of Tomograms are Loaded Prior to Training (sample_size)
     # And picks from these tomograms are trained for a specified number of epochs (NsubEpoch)

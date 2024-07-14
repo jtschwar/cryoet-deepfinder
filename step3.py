@@ -1,16 +1,13 @@
-import click
-import copick
-
 import deepfinder.utils.copick_tools as tools
-import deepfinder.utils.smap as sm
 from deepfinder.inference import Segment
-
+import deepfinder.utils.smap as sm
+import tensorflow as tf
+import click, copick
 
 @click.group()
 @click.pass_context
 def cli(ctx):
     pass
-
 
 @cli.command()
 @click.option(
@@ -18,6 +15,14 @@ def cli(ctx):
     type=str,
     required=True,
     help="Path to the copick config file.",
+)
+@click.option(
+    "--model-name",
+    type=str,
+    required=False,
+    default="res_unet",
+    show_default=True,
+    help="Model Architecture Name to Load For Inference",
 )
 @click.option(
     "--path-weights",
@@ -37,8 +42,22 @@ def cli(ctx):
     required=True,
     help="Patch of Volume for Input to Network.",
 )
-@click.option("--user-id", type=str, default="deepfinder", show_default=True, help="User ID filter for input.")
-@click.option("--session-id", type=str, default=None, show_default=True, help="Session ID filter for input.")
+@click.option(
+    "--user-id", 
+    type=str, 
+    default="deepfinder", 
+    show_default=True, 
+    required=False,
+    help="User ID filter for input."
+)
+@click.option(
+    "--session-id", 
+    type=str, 
+    default=None, 
+    show_default=True, 
+    required=True,
+    help="Session ID filter for input."
+)
 @click.option(
     "--voxel-size",
     type=float,
@@ -58,6 +77,8 @@ def cli(ctx):
 @click.option(
     "--parallel-mpi/--no-parallel-mpi",
     default=False,
+    rquired=False,
+    show_default=True,
     help="Patch of Volume for Input to Network.",
 )
 @click.option(
@@ -65,6 +86,7 @@ def cli(ctx):
     type=str,
     required=False,
     default=None,
+    show_default=True,
     help="Tomogram IDs to Segment.",
 )
 @click.option(
@@ -93,6 +115,7 @@ def cli(ctx):
 )
 def segment(
     predict_config: str,
+    model_name: str,
     path_weights: str,
     n_class: int,
     patch_size: int,
@@ -108,7 +131,6 @@ def segment(
 ):
     # Determine if Using MPI or Sequential Processing
     if parallel_mpi:
-        import pycuda.driver as cuda
         from mpi4py import MPI
 
         # Initialize MPI (Get Rank and nProc)
@@ -116,20 +138,20 @@ def segment(
         rank = comm.Get_rank()
         nProcess = comm.Get_size()
 
-        cuda.init()
-        rank % cuda.Device.count()
+        locGPU = rank % len(tf.config.list_physical_devices('GPU'))
     else:
         nProcess = 1
         rank = 0
+        locGPU = None
 
     ############## (Step 1) Initialize segmentation task: ##############
 
     # Load CoPick root
     copickRoot = copick.from_file(predict_config)
 
-    seg = Segment(Ncl=n_class, path_weights=path_weights, patch_size=patch_size)
+    seg = Segment(n_class, model_name, path_weights=path_weights, patch_size=patch_size, gpuID = locGPU)
 
-    # # Load Evaluate TomoIDs
+    # Load Evaluate TomoIDs
     evalTomos = tomo_ids.split(",") if tomo_ids is not None else [run.name for run in copickRoot.runs]
 
     # Create Temporary Empty Folder
@@ -175,7 +197,6 @@ def segment(
             )
 
     print("Segmentations Complete!")
-
 
 if __name__ == "__main__":
     cli()

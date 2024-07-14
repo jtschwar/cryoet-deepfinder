@@ -1,5 +1,6 @@
 from deepfinder.models.res_unet import my_res_unet_model
 from deepfinder.models.unet import my_unet_model 
+import os
 
 def load_model(dim_in, Ncl, model_name, trained_weights_path):
 
@@ -14,9 +15,11 @@ def load_model(dim_in, Ncl, model_name, trained_weights_path):
         raise ValueError("Invalid model name specified. Valid options {unet, or res_unet}")
 
     if trained_weights_path is not None:
+        if not os.path.exists(trained_weights_path):
+            raise FileNotFoundError(f"The specified path for trained weights does not exist: {trained_weights_path}")
         net.load_weights(trained_weights_path)
-        print(f'Loading {model_name} with Pre-Train Weights')
+        print(f'\nTraining {model_name} with {trained_weights_path} Weights\n')
     else:
-        print(f'Loading {model_name} without Loading Pre-Train Weights')        
+        print(f'\nTraining {model_name} with Randomly Initialized Weights\n')        
 
     return net
