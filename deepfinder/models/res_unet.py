@@ -1,4 +1,4 @@
-from tensorflow.keras.layers import Conv3D, MaxPooling3D, UpSampling3D
+from tensorflow.keras.layers import Conv3D, MaxPooling3D, UpSampling3D, BatchNormalization, LeakyReLU
 from tensorflow.keras.layers import Input, concatenate
 from tensorflow.keras.models import Model
 

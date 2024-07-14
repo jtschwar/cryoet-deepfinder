@@ -67,7 +67,7 @@ class Train(core.DeepFinder):
         self.is_int(self.Lrnd, 'Lrnd')
 
     def load_model(self, model_name, trained_weights_path = None):
-        self.net = model_loader(self.dim_in, self.Ncl, model_name, trained_weights_path)        
+        self.net = model_loader.load_model(self.dim_in, self.Ncl, model_name, trained_weights_path)        
 
     # This function launches the training procedure. For each epoch, an image is plotted, displaying the progression
     # with different metrics: loss, accuracy, f1-score, recall, precision. Every 10 epochs, the current network weights
@@ -121,6 +121,9 @@ class Train(core.DeepFinder):
         self.check_attributes()
         self.check_arguments(path_data, path_target, objlist_train, objlist_valid)
 
+        if self.net is None:
+            self.net = model_loader.load_model(self.dim_in, self.Ncl, 'unet', None)
+
         # TensorBoard writer
         log_dir = self.path_out + "tensorboard_logs/"
         tf.summary.create_file_writer(log_dir)        
@@ -154,14 +157,24 @@ class Train(core.DeepFinder):
         # Callbacks for Save weights and Clear Memory
         # clear_memory_callback = callbacks.ClearMemoryCallback()        
         save_weights_callback = callbacks.SaveWeightsCallback(self.path_out)
-        learning_rate_callback = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=1e-6, verbose=1)
+        learning_rate_callback = tf.keras.callbacks.ReduceLROnPlateau(
+            monitor='val_loss', 
+            factor=0.5, 
+            patience=5, 
+            min_lr=1e-6, 
+            verbose=1
+        )
 
         # Load whole dataset:
         if self.flag_direct_read == False:
             self.display('Loading dataset ...')
             data_list, target_list = core.load_dataset(path_data, path_target, self.h5_dset_name)
 
-        plotting_callback = callbacks.TrainingPlotCallback(validation_data=valid_dataset, validation_steps=self.steps_per_valid, path_out=self.path_out, label_list=self.label_list)
+        plotting_callback = callbacks.TrainingPlotCallback(validation_data=valid_dataset, 
+                                                           validation_steps=self.steps_per_valid, 
+                                                           path_out=self.path_out, 
+                                                           label_list=self.label_list
+                                                           )
 
         self.display('Launch training ...')
 

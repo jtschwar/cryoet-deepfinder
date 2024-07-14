@@ -77,7 +77,7 @@ class Train(core.DeepFinder):
         self.is_int(self.Lrnd, "Lrnd")
 
     def load_model(self, model_name, trained_weights_path = None):
-        self.net = model_loader(self.dim_in, self.Ncl, model_name, trained_weights_path)        
+        self.net = model_loader.load_model(self.dim_in, self.Ncl, model_name, trained_weights_path)        
 
     # This function launches the training procedure. For each epoch, an image is plotted, displaying the progression
     # with different metrics: loss, accuracy, f1-score, recall, precision. Every 10 epochs, the current network weights
