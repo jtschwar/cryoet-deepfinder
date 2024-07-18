@@ -31,7 +31,7 @@ class Segment(core.DeepFinder):
         self.check_attributes()
 
         # Initialize Empty network:
-        self.net = model_loader(patch_size, Ncl, model_name, path_weights)
+        self.net = model_loader.load_model(patch_size, Ncl, model_name, path_weights)
 
         # Set GPU configuration
         gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -48,7 +48,7 @@ class Segment(core.DeepFinder):
     def load_model(self, model_name, path_weights):
         self.path_weights = path_weights
         self.check_attributes()
-        self.net = models.load_model(self.P, self.Ncl, model_name, path_weights)        
+        self.net = model_loader.load_model(self.P, self.Ncl, model_name, path_weights)        
 
     def check_attributes(self):
         self.is_positive_int(self.Ncl, 'Ncl')

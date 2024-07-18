@@ -40,7 +40,8 @@ def cli(ctx):
     "--target",
     type=(str, str, str),
     required=False,
-    help="Tuples of object name, user id, session id and radius.",
+    default = None,
+    help="Tuples of object name, user id and session id (Default for Data Portal: 'data-portal' and).",
     multiple=True,
 )
 @click.option(
@@ -249,7 +250,7 @@ def train(
     trainer.labelName = label_name
     trainer.labelUserID = label_user_id
 
-    # Experimental Weights - [background, membrane, apo, betaAmylase, betaGal, ribo80S, thg, vlp]
+    # Class Weights 
     trainer.class_weights = None
 
     # Load Specified Model Architecture and Potential Pre-Trained Weights
@@ -262,14 +263,17 @@ def train(
     trainer.NsubEpoch = n_sub_epoch
     trainer.sample_size = sample_size
 
-    targets = {}
-    for t in target:
-        info = {
-            "user_id": t[1],
-            "session_id": t[2],
-        }
-        targets[t[0]] = info
-
+    # Assign targets as None if None Are Provided - Will Query from config file
+    if not target:
+        targets = None
+    else:
+        targets = {}
+        for t in target:
+            info = {
+                "user_id": t[1],
+                "session_id": t[2],
+            }
+            targets[t[0]] = info
     trainer.targets = targets
 
     # Create output Path
