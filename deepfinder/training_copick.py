@@ -5,14 +5,14 @@
 # License: GPL v3.0. See <https://www.gnu.org/licenses/>
 # =============================================================================================
 
-import copick
-import numpy as np
+from collections import defaultdict
 import tensorflow as tf
+import numpy as np
+import copick
 
-# Enable mixed precision
+from tensorflow.keras.utils import to_categorical
 from tensorflow.keras import mixed_precision
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.utils import to_categorical
 
 from deepfinder.models import model_loader
 from deepfinder import callbacks, losses
@@ -45,13 +45,22 @@ class Train(core.DeepFinder):
         self.epochs = 100
         self.steps_per_epoch = 100
         self.steps_per_valid = 10  # number of samples for validation
-        self.optimizer = Adam(learning_rate=0.0001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
+
+        # Optimization Paramters 
+        self.learning_rate = 0.0001
+        self.beta1 = 0.9
+        self.beta2 = 0.999
+        self.epislon = 1e-8
+        self.decay = 0
+        self.optimizer = Adam(learning_rate=self.learning_rate, 
+                              beta_1=self.beta1, beta_2=self.beta2, 
+                              epsilon=self.epislon, decay=self.decay)
         self.loss = losses.tversky_loss
 
         # random shifts applied when sampling data- and target-patches (in voxels)
         self.Lrnd = 13
 
-        self.class_weight = None
+        self.class_weights = None
         self.sample_weights = None  # np array same lenght as objl_train
         self.trainTomoIDs = None
         self.validTomoIDs = None
@@ -75,6 +84,14 @@ class Train(core.DeepFinder):
         self.is_positive_int(self.steps_per_epoch, "steps_per_epoch")
         self.is_positive_int(self.steps_per_valid, "steps_per_valid")
         self.is_int(self.Lrnd, "Lrnd")
+
+    def create_class_weights(self, input_class_weights, copick_path):
+
+        copickRoot = copick.from_file(copick_path)
+
+        self.class_weights = defaultdict(lambda: 1, {i: 1 for i in range(self.Ncl + 1)})
+        for weights in input_class_weights:
+            self.class_weights[copickRoot.get_object(weights[0]).label] = weights[1]        
 
     def load_model(self, model_name, trained_weights_path = None):
         self.net = model_loader.load_model(self.dim_in, self.Ncl, model_name, trained_weights_path)        

@@ -22,6 +22,8 @@ dependencies = [
     "scikit-image==0.22.0",
     "starfile",
     "ome-zarr",
+    "pycm",
+    "openpyxl"
 ]
 
 authors = [

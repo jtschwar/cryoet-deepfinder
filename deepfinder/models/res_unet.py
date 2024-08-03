@@ -1,62 +1,50 @@
 from tensorflow.keras.layers import Conv3D, MaxPooling3D, UpSampling3D, BatchNormalization, LeakyReLU
-from tensorflow.keras.layers import Input, concatenate, Add
+from tensorflow.keras.layers import Input, concatenate, Add, Dropout
 from tensorflow.keras.models import Model
+import tensorflow as tf
 
-def residual_block(input, filters, kernel_size=(3,3,3)):
+def residual_block(input, filters, kernel_size=(3, 3, 3)):
     x = Conv3D(filters, kernel_size, padding='same')(input)
     x = BatchNormalization()(x)
     x = LeakyReLU()(x)
     x = Conv3D(filters, kernel_size, padding='same')(x)
     x = BatchNormalization()(x)
 
+    shortcut = input
     if input.shape[-1] != filters:
-        input = Conv3D(filters, (1,1,1), padding='same')(input)
+        shortcut = Conv3D(filters, (1, 1, 1), padding='same')(input)
 
-    x = Add()([input, x])
+    x = Add()([shortcut, x])
     x = LeakyReLU()(x)
     return x
 
-def my_res_unet_model(dim_in, Ncl):
-    input = Input(shape=(dim_in,dim_in,dim_in,1))
+def my_res_unet_model(dim_in, Ncl, filters=[48, 64, 128], dropout_rate=0):
 
-    x = Conv3D(32, (3,3,3), padding='same')(input)
-    x = BatchNormalization()(x)
-    x = LeakyReLU()(x)
-    x = Conv3D(32, (3,3,3), padding='same')(x)
-    x = BatchNormalization()(x)
-    high = LeakyReLU()(x)
+    input = Input(shape=(dim_in, dim_in, dim_in, 1))
 
-    x = MaxPooling3D((2,2,2))(high)
+    x = input
+    down_layers = []
 
-    x = Conv3D(48, (3,3,3), padding='same')(x)
-    x = BatchNormalization()(x)
-    x = LeakyReLU()(x)
-    x = Conv3D(48, (3,3,3), padding='same')(x)
-    x = BatchNormalization()(x)
-    mid = LeakyReLU()(x)
+    # Encoder
+    for filter in filters[:-1]:
+        x = residual_block(x, filter)
+        if dropout_rate > 0: x = Dropout(dropout_rate)(x)
+        down_layers.append(x)
+        x = MaxPooling3D((2, 2, 2))(x)
 
-    x = MaxPooling3D((2,2,2))(mid)
+    # Bottleneck
+    for _ in range(4):
+        x = residual_block(x, filters[-1])
 
-    x = residual_block(x, 64)
-    x = residual_block(x, 64)
-    x = residual_block(x, 64)
-    x = residual_block(x, 64)
+    # Decoder
+    for filter, down_layer in zip(reversed(filters[:-1]), reversed(down_layers)):
+        x = UpSampling3D(size=(2, 2, 2))(x)
+        x = concatenate([x, down_layer])
+        x = residual_block(x, filter)
+        x = residual_block(x, filter)        
+        if dropout_rate > 0: x = Dropout(dropout_rate)(x)
 
-    x = UpSampling3D(size=(2,2,2))(x)
-    x = Conv3D(64, (2,2,2), padding='same', activation='relu')(x)
-
-    x = concatenate([x, mid])
-    x = residual_block(x, 48)
-    x = residual_block(x, 48)
-
-    x = UpSampling3D(size=(2,2,2))(x)
-    x = Conv3D(48, (2,2,2), padding='same', activation='relu')(x)
-
-    x = concatenate([x, high])
-    x = residual_block(x, 32)
-    x = residual_block(x, 32)
-
-    output = Conv3D(Ncl, (1,1,1), padding='same', activation='softmax')(x)
+    output = Conv3D(Ncl, (1, 1, 1), padding='same', activation='softmax')(x)
 
     model = Model(input, output)
     return model
