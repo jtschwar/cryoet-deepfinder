@@ -4,8 +4,9 @@ import numpy as np
 import tensorflow as tf
 from sklearn.metrics import precision_recall_fscore_support
 
-from .utils import copick_tools as copicktools
-from .utils import core
+from tensorflow.keras.optimizers import Adam
+from deepfinder.utils import copick_tools as copicktools
+from deepfinder.utils import core
 
 
 class DatasetSwapCallback(tf.keras.callbacks.Callback):
@@ -116,6 +117,14 @@ class DatasetSwapCallback(tf.keras.callbacks.Callback):
 
             if self.plotting_callback:
                 self.plotting_callback.validation_data = new_valid_dataset
+
+            # Reset the Optimizer ( TODO? )
+            # new_optimizer = Adam(learning_rate=self.learning_rate, 
+            #                      beta_1=self.beta1, beta_2=self.beta2, 
+            #                      epsilon=self.epislon, decay=self.decay)
+            # self.model.compile(optimizer=new_optimizer, 
+            #                    loss=self.model.loss, 
+            #                    metrics=self.model.metrics)
 
 
 #  Custom callback to save model weights every 10 epochs.
