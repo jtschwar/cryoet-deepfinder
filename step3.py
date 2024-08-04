@@ -77,7 +77,7 @@ def cli(ctx):
 @click.option(
     "--parallel-mpi/--no-parallel-mpi",
     default=False,
-    rquired=False,
+    required=False,
     show_default=True,
     help="Patch of Volume for Input to Network.",
 )
