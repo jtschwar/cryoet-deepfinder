@@ -113,10 +113,10 @@ class DatasetSwapCallback(tf.keras.callbacks.Callback):
 
             # Update the model's dataset
             self.train_instance.net.train_dataset = new_train_dataset
-            self.train_instance.net.valid_dataset = new_valid_dataset
+            # self.train_instance.net.valid_dataset = new_valid_dataset
 
-            if self.plotting_callback:
-                self.plotting_callback.validation_data = new_valid_dataset
+            # if self.plotting_callback:
+            #     self.plotting_callback.validation_data = new_valid_dataset
 
             # Reset the Optimizer ( TODO? )
             # new_optimizer = Adam(learning_rate=self.learning_rate, 

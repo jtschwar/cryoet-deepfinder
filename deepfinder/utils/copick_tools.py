@@ -109,7 +109,7 @@ def get_copick_segmentation(copickRun, segmentationName="segmentationmap", userI
     return zarr.open(store, mode="r")[0]
 
 
-def get_ground_truth_coordinates(copickRun, voxelSize, proteinIndex):
+def get_ground_truth_coordinates(copickRun, voxelSize, proteinName, userID = None, sessionID = None):
     """Get the Ground Truth Coordinates From Copick and Return as a Numpy Array.
 
     Args:
@@ -121,7 +121,9 @@ def get_ground_truth_coordinates(copickRun, voxelSize, proteinIndex):
         coords: The newly created segmentation object.
     """
 
-    picks = copickRun.picks[proteinIndex]
+    picks = copickRun.get_picks(proteinName,
+                                user_id = userID, 
+                                session_id = sessionID)[0]
 
     coords = []
     for ii in range(len(picks.points)):

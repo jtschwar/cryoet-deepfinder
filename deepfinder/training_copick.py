@@ -14,9 +14,9 @@ from tensorflow.keras.utils import to_categorical
 from tensorflow.keras import mixed_precision
 from tensorflow.keras.optimizers import Adam
 
+from deepfinder.utils import core, augmentdata
 from deepfinder.models import model_loader
 from deepfinder import callbacks, losses
-from deepfinder.utils import core
 
 policy = mixed_precision.Policy("mixed_float16")
 mixed_precision.set_global_policy(policy)
@@ -75,6 +75,7 @@ class Train(core.DeepFinder):
         self.sample_size = 15
 
         self.check_attributes()
+        self.data_augmentor = augmentdata.DataAugmentation()
 
     def check_attributes(self):
         self.is_positive_int(self.Ncl, "Ncl")
@@ -302,11 +303,14 @@ class Train(core.DeepFinder):
                 patch_target = to_categorical(patch_target, Ncl)
                 patch_data = (patch_data - np.mean(patch_data)) / np.std(patch_data)
 
+                # Apply Augmentations to Cropped Volume
+                patch_data, patch_target = self.data_augmentor.apply_augmentations(patch_data, patch_target)
+
                 self.batch_target[i] = patch_target
                 self.batch_data[i, :, :, :, 0] = patch_data
 
-                if np.random.uniform() < 0.5:
-                    self.batch_data[i] = np.rot90(self.batch_data[i], k=2, axes=(0, 2))
-                    self.batch_target[i] = np.rot90(self.batch_target[i], k=2, axes=(0, 2))
+                # if np.random.uniform() < 0.5:
+                #     self.batch_data[i] = np.rot90(self.batch_data[i], k=2, axes=(0, 2))
+                #     self.batch_target[i] = np.rot90(self.batch_target[i], k=2, axes=(0, 2))
 
             yield self.batch_data, self.batch_target
