@@ -7,20 +7,31 @@ class DataAugmentation:
     Class for applying various data augmentation techniques to 3D tomograms and their corresponding targets.
     """
 
-    def __init__(self, seed = None):
+    def __init__(self, seed=None):
         """
         Initialize the DataAugmentation class with a list of augmentation functions.
         """
+        
         # TODO: Add Random Noise 
-
         self.augmentations = [
             self.brightness,
             self.gaussian_blur,
             self.intensity_scaling,
-            self.contrast_adjustment,
-            self.rotation            
+            self.contrast_adjustment, 
+            self.rotation_180_degrees,
+            # self.angle_rotation,            
         ]
-        
+
+        self.axes = [(0, 1), (0, 2), (1, 2)]
+
+        # Set the seed for the random number generators. 
+        # If no seed is provided, use the current time.
+        if seed is None:
+            seed = int(time.time())
+        np.random.seed(seed)
+        random.seed(seed)            
+
+
     def apply_augmentations(self, volume, target):
         """
         Apply a random sequence of augmentations to the given volume and target.
@@ -34,7 +45,7 @@ class DataAugmentation:
         """
         random.shuffle(self.augmentations)
         for augmentation in self.augmentations:
-            if augmentation == self.rotation:
+            if augmentation == self.angle_rotation or augmentation == self.rotation_180_degrees:
                 volume, target = augmentation(volume, target)
             else:
                 volume = augmentation(volume)
@@ -115,7 +126,22 @@ class DataAugmentation:
 
     ####################### Geometric Transformations  #######################
 
-    def rotation(self, volume, target, max_angle=15):
+    def rotation_180_degrees(self, volume, target, augment_probability=0.5):
+
+        # Apply fixed 180-degree rotation with some probability
+        if np.random.rand() < augment_probability:
+
+            # chosen_axis = self.axes[np.random.randint(0, len(self.axes))]
+            chosen_axis = (0,2)
+
+            # Rotate by 180 degrees around the x-z plane
+            volume = np.rot90(volume, k=2, axes=chosen_axis)
+            target = np.rot90(target, k=2, axes=chosen_axis)
+        
+        return volume, target
+
+
+    def angle_rotation(self, volume, target, max_angle=15, augment_probability=0.8):
         """
         Parameters:
         volume (numpy.ndarray): The input 3D volume.
@@ -125,12 +151,13 @@ class DataAugmentation:
         Returns:
         tuple: The rotated volume and target.
         """
-        angle = np.random.uniform(-max_angle, max_angle)
-        axes = [(0, 1), (0, 2), (1, 2)]
-        chosen_axis = axes[np.random.randint(0, len(axes))]
-        rotated_volume = rotate(volume, angle, axes=chosen_axis, reshape=False, mode='reflect')
-        rotated_target = rotate(target, angle, axes=chosen_axis, reshape=False, mode='reflect')
-        return rotated_volume, rotated_target   
+
+        if np.random.rand() < augment_probability:
+            angle = np.random.uniform(-max_angle, max_angle)
+            chosen_axis = self.axes[np.random.randint(0, len(self.axes))]
+            volume = rotate(volume, angle, axes=chosen_axis, reshape=False, mode='reflect')
+            target = rotate(target, angle, axes=chosen_axis, reshape=False, mode='reflect')
+        return volume, target   
 
     def elastic_transform(self, volume, target, alpha=15, sigma=3):
         """
