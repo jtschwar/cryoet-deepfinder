@@ -1,5 +1,5 @@
 from scipy.ndimage import rotate, zoom, map_coordinates, gaussian_filter
-import os, warnings, random
+import os, warnings, random, time
 import numpy as np
 
 class DataAugmentation:
@@ -7,7 +7,7 @@ class DataAugmentation:
     Class for applying various data augmentation techniques to 3D tomograms and their corresponding targets.
     """
 
-    def __init__(self):
+    def __init__(self, seed = None):
         """
         Initialize the DataAugmentation class with a list of augmentation functions.
         """
@@ -18,8 +18,9 @@ class DataAugmentation:
             self.gaussian_blur,
             self.intensity_scaling,
             self.contrast_adjustment,
+            self.rotation            
         ]
-
+        
     def apply_augmentations(self, volume, target):
         """
         Apply a random sequence of augmentations to the given volume and target.
