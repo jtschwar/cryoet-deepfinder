@@ -180,6 +180,7 @@ def load_copick_datasets(copickPath, train_instance, tomoIDs=None):
             copickRoot.get_run(tomoIDs[idx]),
             train_instance.labelName,
             train_instance.labelUserID,
+            train_instance.sessionID,
         )[:]
         data_list[tomoIDs[idx]] = copicktools.read_copick_tomogram_group(
             copickRoot,

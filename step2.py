@@ -1,6 +1,6 @@
 from deepfinder.training_copick import Train
 import deepfinder.utils.common as cm
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 import copick, click, os
 
 
@@ -171,6 +171,14 @@ def cli(ctx):
     help="User ID of the segmentation target.",
 )
 @click.option(
+    "--label-session-id",
+    type=str,
+    required=False,
+    default="0",
+    show_default=True,
+    help="Session ID of the segmentation target",
+)
+@click.option(
     "--valid-tomo-ids",
     type=str,
     required=False,
@@ -186,15 +194,15 @@ def cli(ctx):
     show_default=True,
     help="List of training tomoIDs.",
 )
-# @click.option(
-#     "--class-weight",
-#     type=(str, float),
-#     multiple=True,
-#     required=False,
-#     default=None,
-#     show_default=True,
-#     help="Class weights.",
-# )
+@click.option(
+    "--class-weights",
+    type=(str, float),
+    multiple=True,
+    required=False,
+    default=None,
+    show_default=True,
+    help="Class weights.",
+)
 def train(
     path_train: str,
     train_voxel_size: int,
@@ -217,9 +225,10 @@ def train(
     batch_bootstrap: bool = True,
     label_name: str = "spheretargets",
     label_user_id: str = "train-deepfinder",
+    label_session_id: str = "0",    
     valid_tomo_ids: str = None,
     train_tomo_ids: str = None,
-    # class_weight: dict = None,
+    class_weights: Optional[List[Tuple[str,float]]] = None,
 ):
     
     # Parse input parameters
@@ -249,14 +258,13 @@ def train(
     # Segmentation Target Name And Corresponding UserID
     trainer.labelName = label_name
     trainer.labelUserID = label_user_id
+    trainer.sessionID = label_session_id
 
-    # Class Weights 
-    trainer.class_weights = None
-
+    # Assign Class Weights
+    if class_weights is not None:   trainer.create_class_weights(class_weights, path_train)
+      
     # Load Specified Model Architecture and Potential Pre-Trained Weights
     trainer.load_model(model_name, model_pre_weights)
-
-    # trainer.class_weights    = {0:1, 1:3000, 2:6500, 3:70790, 4:800, 5:20225, 6:10300, 7:28000}
 
     # A Certain Number of Tomograms are Loaded Prior to Training (sample_size)
     # And picks from these tomograms are trained for a specified number of epochs (NsubEpoch)

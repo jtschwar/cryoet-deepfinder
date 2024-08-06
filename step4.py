@@ -1,7 +1,7 @@
 import deepfinder.utils.copick_tools as tools
 import deepfinder.utils.eval as eval
 import scipy.ndimage as ndimage
-import click, copick, os
+import click, copick, os, json
 from tqdm import tqdm 
 import numpy as np
 
@@ -45,20 +45,20 @@ def cli(ctx):
     help="Session ID filter for input."
 )
 @click.option(
+    "--segmentation-name",
+    type=str,
+    required=False,
+    default="segmentation",
+    show_default=True,
+    help="Name for segmentation prediction.",    
+)
+@click.option(
     "--voxel-size",
     type=float,
     required=False,
     default=10.0,
     show_default=True,
     help="Voxel size of the tomograms to segment.",
-)
-@click.option(
-    "--tomogram-algorithm",
-    type=str,
-    required=False,
-    default="wbp",
-    show_default=True,
-    help="Tomogram Algorithm.",
 )
 @click.option(
     "--parallel-mpi/--no-parallel-mpi",
@@ -86,17 +86,28 @@ def cli(ctx):
     default=None,
     help="Write Path to Save Starfile Coordinate Files Per Protein.",
 )
+@click.option(
+    "--min-protein-size",
+    type=float,
+    required=False,
+    default=0.8,
+    help="Specifies the minimum size of protein objects to be considered during the localization process. "
+          "This parameter helps filter out small false positives objects based on their size. The value should be between (0, 1.0], "
+          "representing a fraction of the typical protein size defined in the configuration. Objects smaller than this threshold will be ignored. ",
+)
 def localize(
     predict_config: str,
     n_class: int,
     user_id: str, 
     picks_session_id: str,
     segmentation_session_id: str,    
+    segmentation_name: str,
     voxel_size: float,
     parallel_mpi: bool = False,
     tomo_ids: str = None,
     path_output: str = "deefinder_predictions/ExperimentRuns",
-    starfile_write_path: str = None
+    starfile_write_path: str = None,
+    min_protein_size: float = 0.8, 
     ):
 
     # Determine if Using MPI or Sequential Processing
@@ -111,12 +122,18 @@ def localize(
         nProcess = 1
         rank = 0
 
-    # TODO: Query Proteins Shapes from Config File
-    proteins = {'apo': {'name': 'apo-ferritin', 'diameter': 130}, 
-                'ribo80S': {'name': 'ribosome', 'diameter': 310},
-                'VLP': {'name': 'virus-like-particle', 'diameter': 285} }
+    # Open and read the Config File
+    with open(predict_config, 'r') as file:
+        data = json.load(file)
+    
+    # Get Path Output from Config File
+    # path_output = os.path.join(data['overlay_root'], 'ExperimentRuns')
 
-    tags = list(proteins)            
+    # Create dictionary with name as key and diameter as value
+    proteins = {obj['name']: (obj['radius'] * 2, obj['label']) for obj in data['pickable_objects']}
+
+    # Create a reverse dictionary with label as key and name as value
+    label_to_name_dict = {obj['label']: obj['name'] for obj in data['pickable_objects']}          
 
     # Load CoPick root
     copickRoot = copick.from_file(predict_config)
@@ -128,31 +145,36 @@ def localize(
     for tomoInd in tqdm(range(len(evalTomos))):
         if (tomoInd + 1) % nProcess == rank:     
             tomoID = evalTomos[tomoInd]
-            copickRun = copickRoot.get_run(tomoID)
-            labelmap = tools.get_copick_segmentation(copickRun, segmentation_session_id, user_id)[0][:]
-
+            copickRun = copickRoot.get_run(tomoID)           
+            labelmap = tools.get_copick_segmentation(copickRun, segmentation_name, user_id, segmentation_session_id)[:]
             for label in range(2, n_class):
+                
+                    protein_name = label_to_name_dict.get(label)
+                    print('Finding Predictions for : ', protein_name)
+                    label_objs, _ = ndimage.label(labelmap == label)
 
-                    print('Finding Predictions for : ', proteins[tags[label-2]]['name'])
-                    label_objs, num_features = ndimage.label(labelmap == label)
+                    # Filter Candidates based on Object Size
+                    # Get the sizes of all objects
+                    object_sizes = np.bincount(label_objs.flat)
+
+                    # Filter the objects based on size
+                    min_object_size = 4/3 * np.pi * (proteins['radius']**2) * min_protein_size
+                    valid_objects = np.where(object_sizes > min_object_size)[0]                          
 
                     # Estimate Coordiantes from CoM for LabelMaps
                     deepFinderCoords = []
-                    for object_num in range(1, num_features+1):
+                    for object_num in tqdm(valid_objects):
                         com = ndimage.center_of_mass(label_objs == object_num)
                         swapped_com = (com[2], com[1], com[0])
                         deepFinderCoords.append(swapped_com)
-                    deepFinderCoords = np.array(deepFinderCoords)
+                    deepFinderCoords = np.array(deepFinderCoords)   
 
                     # Estimate Distance Threshold Based on 1/2 of Particle Diameter
-                    threshold = np.ceil(  proteins[tags[label-2]]['diameter'] / (voxel_size * 3) )
+                    threshold = np.ceil(  proteins[protein_name][0] / (voxel_size * 3) )
 
                     try: 
                         # Remove Double Counted Coordinates
                         deepFinderCoords = eval.remove_repeated_picks(deepFinderCoords, threshold)
-
-                        # Convert from Voxel to Physical Units
-                        deepFinderCoords *= voxel_size
 
                         # Append Euler Angles to Coordinates [ Expand Dimensions from Nx3 -> Nx6 ]
                         deepFinderCoords = np.concatenate((deepFinderCoords, np.zeros(deepFinderCoords.shape)),axis=1)
@@ -161,14 +183,17 @@ def localize(
                         if starfile_write_path is not None:
                             tomoIDstarfilePath = os.path.join(starfile_write_path,tomoID)
                             os.makedirs(tomoIDstarfilePath, exist_ok=True)
-                            tools.write_relion_output(proteins[tags[label-2]]['name'], None, deepFinderCoords, tomoIDstarfilePath , pixelSize=1) 
-                    
+                            tools.write_relion_output(protein_name, None, deepFinderCoords, tomoIDstarfilePath , pixelSize=1) 
+
+                        # Convert from Voxel to Physical Units
+                        deepFinderCoords *= voxel_size
+
                     except Exception as e:
                         print(f"Error processing label {label} in tomo {tomoID}: {e}")
                         deepFinderCoords = np.array([]).reshape(0,6)
 
                     # Save Picks in Copick Format / Directory 
-                    tools.write_copick_output(proteins[tags[label-2]]['name'], tomoID, deepFinderCoords, path_output, pickMethod=user_id, sessionID = picks_session_id)
+                    tools.write_copick_output(protein_name, tomoID, deepFinderCoords, path_output, pickMethod=user_id, sessionID = picks_session_id)
 
     print('Extraction of Particle Coordinates Complete!')
 

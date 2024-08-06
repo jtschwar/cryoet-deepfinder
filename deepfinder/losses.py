@@ -22,8 +22,8 @@ from tensorflow.keras import backend as K
 # alpha=beta=1   : tanimoto coefficient (also known as jaccard)
 # alpha+beta=1   : produces set of F*-scores
 def tversky_loss(y_true, y_pred):
-    alpha = 0.5
-    beta = 0.5
+    alpha = 0.3
+    beta = 0.7
     epsilon = 1
 
     ones = tf.ones(tf.shape(y_true))
@@ -40,34 +40,40 @@ def tversky_loss(y_true, y_pred):
     Ncl = tf.cast(tf.shape(y_true)[-1], 'float32')
     return Ncl - T
 
-def focal_loss(y_true, y_pred):
-    r"""Compute focal loss for predictions.
-
-        Multi-labels Focal loss formula:
-            FL = -alpha * (z-p)^gamma * log(p) -(1-alpha) * p^gamma * log(1-p)
-                 ,which alpha = 0.25, gamma = 2, p = sigmoid(x), z = y_true.
-
-    Args:
-     y_pred: A float tensor of shape [batch_size, num_anchors,
-        num_classes] representing the predicted logits for each class
-     y_true: A float tensor of shape [batch_size, num_anchors,
-        num_classes] representing one-hot encoded classification targets
-     weights: A float tensor of shape [batch_size, num_anchors]
-     alpha: A scalar tensor for focal loss alpha hyper-parameter
-     gamma: A scalar tensor for focal loss gamma hyper-parameter
-    Returns:
-        loss: A (scalar) tensor representing the value of the loss function
+def focal_tversky_loss(y_true, y_pred, alpha=0.3, beta=0.7, gamma=2.0):
     """
-    sigmoid_p = tf.nn.sigmoid(y_pred)
-    zeros = array_ops.zeros_like(sigmoid_p, dtype=sigmoid_p.dtype)
+    Focal Tversky loss for multi-class segmentation.
     
-    # For poitive prediction, only need consider front part loss, back part is 0;
-    # y_true > zeros <=> z=1, so poitive coefficient = z - p.
-    pos_p_sub = array_ops.where(y_true > zeros, y_true - sigmoid_p, zeros)
+    Args:
+        y_true: Tensor of shape [batch_size, height, width, depth, num_classes]
+                representing one-hot encoded ground truth labels.
+        y_pred: Tensor of shape [batch_size, height, width, depth, num_classes]
+                representing the predicted probabilities for each class.
+        alpha: Weight of false positives.
+        beta: Weight of false negatives.
+        gamma: Focusing parameter.
+        epsilon: Small value to avoid division by zero.
+                
+    Returns:
+        loss: Focal Tversky loss.
+    """
+    # Ensure y_true and y_pred are float32 tensors
+    y_true = tf.cast(y_true, dtype=tf.float32)
+    y_pred = tf.cast(y_pred, dtype=tf.float32)
     
-    # For negative prediction, only need consider back part loss, front part is 0;
-    # y_true > zeros <=> z=1, so negative coefficient = 0.
-    neg_p_sub = array_ops.where(y_true > zeros, zeros, sigmoid_p)
-    per_entry_cross_ent = - alpha * (pos_p_sub ** gamma) * tf.log(tf.clip_by_value(sigmoid_p, 1e-8, 1.0)) \
-                          - (1 - alpha) * (neg_p_sub ** gamma) * tf.log(tf.clip_by_value(1.0 - sigmoid_p, 1e-8, 1.0))
-    return tf.reduce_sum(per_entry_cross_ent)
+    # Clip predictions to prevent log(0) errors
+    y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
+    
+    # Calculate true positives, false negatives, and false positives
+    true_pos = K.sum(y_true * y_pred, axis=[1, 2, 3, 4])
+    false_neg = K.sum(y_true * (1 - y_pred), axis=[1, 2, 3, 4])
+    false_pos = K.sum((1 - y_true) * y_pred, axis=[1, 2, 3, 4])
+    
+    # Calculate the Tversky index
+    tversky_index = (true_pos + epsilon) / (true_pos + alpha * false_neg + beta * false_pos + epsilon)
+    
+    # Apply the focal term
+    focal_tversky_loss = K.pow((1 - tversky_index), gamma)
+    
+    # Return the mean loss over the batch
+    return K.mean(focal_tversky_loss)
