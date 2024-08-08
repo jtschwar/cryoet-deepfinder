@@ -130,7 +130,7 @@ def localize(
     # path_output = os.path.join(data['overlay_root'], 'ExperimentRuns')
 
     # Create dictionary with name as key and diameter as value
-    proteins = {obj['name']: (obj['radius'] * 2, obj['label']) for obj in data['pickable_objects']}
+    proteins = {obj['name']: (obj['radius'], obj['label']) for obj in data['pickable_objects']}
 
     # Create a reverse dictionary with label as key and name as value
     label_to_name_dict = {obj['label']: obj['name'] for obj in data['pickable_objects']}          
@@ -158,7 +158,7 @@ def localize(
                     object_sizes = np.bincount(label_objs.flat)
 
                     # Filter the objects based on size
-                    min_object_size = 4/3 * np.pi * (proteins['radius']**2) * min_protein_size
+                    min_object_size = 4/3 * np.pi * ((proteins[protein_name][0]/voxel_size)**2) * min_protein_size
                     valid_objects = np.where(object_sizes > min_object_size)[0]                          
 
                     # Estimate Coordiantes from CoM for LabelMaps

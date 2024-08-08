@@ -90,7 +90,7 @@ class Train(core.DeepFinder):
 
         copickRoot = copick.from_file(copick_path)
 
-        self.class_weights = defaultdict(lambda: 1, {i: 1 for i in range(self.Ncl + 1)})
+        self.class_weights = defaultdict(lambda: 1, {i: 1 for i in range(self.Ncl)})
         for weights in input_class_weights:
             self.class_weights[copickRoot.get_object(weights[0]).label] = weights[1]        
 
