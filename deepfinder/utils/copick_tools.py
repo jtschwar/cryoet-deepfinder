@@ -391,6 +391,43 @@ def ome_zarr_transforms(voxel_size: float) -> List[Dict[str, Any]]:
     """
     return [{"scale": [voxel_size, voxel_size, voxel_size], "type": "scale"}]
 
+def write_ome_zarr_tomogram(
+    run,
+    inputVol,
+    voxelSize=10,
+    tomo_algorithm="wbp"
+    ):
+    """
+    Write a OME-Zarr segmentation into a Copick Directory.
+
+    Parameters:
+    - run: The run object, which provides a method to create a new segmentation.
+    - segmentation: The segmentation data to be written.
+    - voxelsize (float): The size of the voxels. Default is 10.
+    """
+
+    # Create a new segmentation or Read Previous Segmentation
+    vs = run.get_voxel_spacing(voxelSize)
+    if vs is None:
+        vs = run.new_voxel_spacing(
+            voxel_size=voxelSize,
+        )
+        tomogram = vs.new_tomogram(tomo_algorithm)
+    else:
+        tomogram = vs.get_tomogram(tomo_algorithm)
+        
+    # Write the zarr file
+    loc = tomogram.zarr()
+    root_group = zarr.group(loc, overwrite=True)
+
+    ome_zarr.writer.write_multiscale(
+        [inputVol],
+        group=root_group,
+        axes=ome_zarr_axes(),
+        coordinate_transformations=[ome_zarr_transforms(voxelSize)],
+        storage_options=dict(chunks=(256, 256, 256), overwrite=True),
+        compute=True,
+    )
 
 def write_ome_zarr_segmentation(
     run,
@@ -412,7 +449,7 @@ def write_ome_zarr_segmentation(
     # Create a new segmentation or Read Previous Segmentation
     seg = run.get_segmentations(name=segmentationName, user_id=userID, session_id=sessionID)
 
-    if len(seg) == 0:
+    if len(seg) == 0 or seg[0].voxel_size != voxelSize:
         seg = run.new_segmentation(
             voxel_size=voxelSize,
             name=segmentationName,
@@ -422,6 +459,7 @@ def write_ome_zarr_segmentation(
         )
     else:
         seg = seg[0]
+
 
     # Write the zarr file
     loc = seg.zarr()

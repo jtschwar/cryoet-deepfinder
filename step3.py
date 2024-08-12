@@ -159,6 +159,7 @@ def segment(
         if (tomoInd + 1) % nProcess == rank:
             # Extract TomoID and Associated Run
             tomoID = evalTomos[tomoInd]
+            print(f'Processing Run: {tomoID}')
 
             # Load data:
             tomo = tools.get_copick_tomogram(

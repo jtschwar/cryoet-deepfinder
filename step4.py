@@ -143,8 +143,11 @@ def localize(
 
     # Create Temporary Empty Folder 
     for tomoInd in tqdm(range(len(evalTomos))):
-        if (tomoInd + 1) % nProcess == rank:     
+        if (tomoInd + 1) % nProcess == rank: 
+            # Extract TomoID and Associated Run    
             tomoID = evalTomos[tomoInd]
+            print(f'Processing Run: {tomoID}')
+
             copickRun = copickRoot.get_run(tomoID)           
             labelmap = tools.get_copick_segmentation(copickRun, segmentation_name, user_id, segmentation_session_id)[:]
             for label in range(2, n_class):
