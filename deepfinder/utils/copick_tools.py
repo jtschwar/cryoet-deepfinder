@@ -436,7 +436,8 @@ def write_ome_zarr_segmentation(
     segmentationName="segmentation",
     userID="deepfinder",
     sessionID="0",
-):
+    multilabel_seg = True
+    ):
     """
     Write a OME-Zarr segmentation into a Copick Directory.
 
@@ -454,7 +455,7 @@ def write_ome_zarr_segmentation(
             voxel_size=voxelSize,
             name=segmentationName,
             session_id=sessionID,
-            is_multilabel=True,
+            is_multilabel=multilabel_seg,
             user_id=userID,
         )
     else:
